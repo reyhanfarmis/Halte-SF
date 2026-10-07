@@ -1,0 +1,738 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2F55B5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Halte">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Halte SF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+/* Layout: one-column phone app — sticky header, list of stop cards, fixed bottom tab bar, bottom sheet for details */
+:root{
+  --hue:228;
+  --bg:#EEF1F3; --surface:#FFFFFF; --surface-2:#E4E9ED; --fg:#122029; --muted:#5B6C78; --rule:#D3DBE1;
+  --acc-l:0.50; --acc-c:0.14;
+  --accent:oklch(var(--acc-l) var(--acc-c) var(--hue)); --accent-soft:oklch(0.94 0.04 var(--hue)); --on-accent:#FFFFFF;
+  --live:#14874D; --warn:#B26A00; --bad:#BF3328;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0C1318; --surface:#141E25; --surface-2:#1D2A33; --fg:#E6EDF1; --muted:#90A2AE; --rule:#283844;
+  --acc-l:0.74; --accent-soft:oklch(0.30 0.06 var(--hue)); --on-accent:#0C1318;
+  --live:#3BD488; --warn:#F0AE48; --bad:#F2695D; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0C1318; --surface:#141E25; --surface-2:#1D2A33; --fg:#E6EDF1; --muted:#90A2AE; --rule:#283844;
+  --acc-l:0.74; --accent-soft:oklch(0.30 0.06 var(--hue)); --on-accent:#0C1318;
+  --live:#3BD488; --warn:#F0AE48; --bad:#F2695D; color-scheme:dark }
+:root[data-theme="light"]{ color-scheme:light }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--f-body);-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:560px;margin:0 auto;min-height:100%;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;gap:10px;padding:12px 16px 10px}
+.brand{display:flex;align-items:baseline;gap:8px;flex:1;min-width:0}
+.brand b{font:700 26px/1 var(--f-display);letter-spacing:.01em}
+.brand .mark{width:18px;height:18px;border-radius:5px;background:var(--accent);align-self:center;position:relative}
+.brand .mark::after{content:"";position:absolute;inset:4px 7px;background:var(--on-accent);border-radius:2px}
+.brand small{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.chip{font-size:11px;font-weight:700;letter-spacing:.08em;padding:4px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.chip.live{background:color-mix(in oklab,var(--live) 18%,transparent);color:var(--live)}
+.updated{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+main{padding-inline:16px;display:flex;flex-direction:column;gap:14px}
+.h{font:600 13px/1 var(--f-body);text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:6px 2px 0}
+.note{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:10px;padding:10px 12px}
+.note b{color:var(--fg)}
+
+.searchrow{display:flex;gap:8px}
+.search{flex:1;min-width:0;height:44px;border-radius:12px;border:1px solid var(--rule);background:var(--surface);color:var(--fg);padding:0 14px;font:inherit}
+.iconbtn{height:44px;min-width:44px;border-radius:12px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;padding:0 12px;font-weight:600;font-size:14px;gap:6px;grid-auto-flow:column}
+.iconbtn.ghost{background:var(--surface);color:var(--fg);border:1px solid var(--rule)}
+.results{display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r);overflow:hidden}
+.results:empty{display:none}
+.res{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid var(--rule);text-align:left}
+.res:last-child{border-bottom:0}
+.res span{color:var(--muted);font-size:13px;white-space:nowrap}
+
+.card{background:var(--surface);border-radius:var(--r);overflow:hidden}
+.card-h{display:flex;align-items:center;gap:10px;padding:12px 14px 8px;width:100%;text-align:left}
+.card-h .nm{flex:1;min-width:0;font-weight:600;font-size:16px;line-height:1.25}
+.card-h .dist{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.star{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;color:var(--muted)}
+.star[aria-pressed="true"]{color:var(--accent)}
+.empty{padding:6px 14px 14px;color:var(--muted);font-size:14px}
+
+.dep{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--rule);width:100%;text-align:left}
+.badge{--lc:#3A4A57;min-width:34px;height:34px;padding:0 6px;border-radius:8px;background:var(--lc);color:#fff;display:grid;place-items:center;font:700 19px/1 var(--f-display);letter-spacing:.01em}
+.badge.rail{border-radius:50%;width:34px;padding:0}
+.badge.cable{border-radius:4px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.22)}
+.badge.sm{min-width:26px;height:26px;font-size:15px}
+.badge.sm.rail{width:26px}
+.dest{font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+.sub{font-size:12.5px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;margin-top:1px}
+.occ{display:inline-flex;align-items:center;gap:3px}
+.occ i{width:4px;height:9px;border-radius:1px;background:var(--rule);display:inline-block}
+.occ i.on{background:var(--muted)}
+.occ.full i.on{background:var(--bad)}
+.eta{text-align:right;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;align-items:flex-end}
+.eta .big{display:flex;align-items:baseline;gap:3px}
+.eta b{font:700 30px/0.95 var(--f-display)}
+.eta small{font-size:12px;color:var(--muted)}
+.eta .rt b{color:var(--live)}
+.eta .next{font-size:12px;color:var(--muted);margin-top:2px}
+.pulse{width:10px;height:10px;align-self:flex-start;margin-top:2px}
+@media (prefers-reduced-motion:no-preference){ .pulse path{animation:p 1.6s ease-in-out infinite} .pulse path:nth-child(2){animation-delay:.25s} }
+@keyframes p{0%,100%{opacity:.35}50%{opacity:1}}
+.sched{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.bell{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;color:var(--muted)}
+.bell[aria-pressed="true"]{color:var(--on-accent);background:var(--accent)}
+.dep.withbell{grid-template-columns:auto 1fr auto auto}
+
+.linelist{display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r);overflow:hidden}
+.lrow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--rule);text-align:left;width:100%}
+.lrow:last-child{border-bottom:0}
+.lrow .t{flex:1;min-width:0;font-weight:600}
+.lrow .m{font-size:12px;color:var(--muted)}
+.seg{display:flex;background:var(--surface-2);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;padding:9px 6px;border-radius:9px;font-size:14px;font-weight:600;color:var(--muted);min-width:0}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+.alert{background:var(--surface);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px;border-left:4px solid var(--warn)}
+.alert h3{margin:0;font-size:15.5px;line-height:1.3;text-wrap:balance}
+.alert p{margin:0;color:var(--muted);font-size:14px}
+.alert .ls{display:flex;gap:6px;flex-wrap:wrap}
+
+.set{background:var(--surface);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px}
+.set label,.set .lbl{font-weight:600}
+.set .hint{font-size:13px;color:var(--muted);margin-top:-6px}
+.sw{display:flex;gap:10px;flex-wrap:wrap}
+.sw button{width:40px;height:40px;border-radius:50%;background:oklch(var(--acc-l) var(--acc-c) var(--h));border:3px solid transparent}
+.sw button[aria-pressed="true"]{border-color:var(--fg)}
+select{height:42px;border-radius:10px;border:1px solid var(--rule);background:var(--surface);color:var(--fg);padding:0 10px;font:inherit}
+.feat{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:14px}
+.feat span:nth-child(even){color:var(--live);font-weight:600}
+.danger{color:var(--bad);font-weight:600;text-align:left}
+.credit{font-size:12px;color:var(--muted);text-align:center;padding:4px 0 8px}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--rule);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs .in{display:flex;width:100%;max-width:560px}
+.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 2px 8px;font-size:11px;font-weight:600;color:var(--muted);min-width:0}
+.tabs button[aria-current="page"]{color:var(--accent)}
+.tabs svg{width:23px;height:23px}
+
+.scrim{position:fixed;inset:0;background:rgba(5,10,14,.45);z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-height:88%;display:flex;flex-direction:column;background:var(--bg);border-radius:18px 18px 0 0;max-width:560px;margin:0 auto;padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-reduced-motion:no-preference){ .sheet{animation:up .22s ease-out} }
+@keyframes up{from{transform:translateY(24px);opacity:.6}}
+.sheet-h{display:flex;align-items:flex-start;gap:10px;padding:14px 16px 10px}
+.sheet-h h2{margin:0;font:700 26px/1.05 var(--f-display);flex:1;min-width:0;text-wrap:balance}
+.sheet-h .meta{font-size:13px;color:var(--muted);margin-top:4px;font-family:var(--f-body);font-weight:400}
+.sheet-b{overflow-y:auto;padding:0 16px 18px;display:flex;flex-direction:column;gap:12px}
+.close{width:36px;height:36px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;flex:none}
+
+.route{background:var(--surface);border-radius:var(--r);padding:8px 0}
+.rs{display:grid;grid-template-columns:44px 1fr auto;align-items:center;min-height:44px;position:relative}
+.rs .track{position:absolute;left:21px;top:0;bottom:0;width:4px;background:var(--lc)}
+.rs:first-child .track{top:50%}
+.rs:last-child .track{bottom:50%}
+.rs .node{width:14px;height:14px;border-radius:50%;background:var(--surface);border:3px solid var(--lc);justify-self:center;position:relative;z-index:1}
+.rs .rn{padding-right:10px;font-size:14.5px;min-width:0}
+.rs.end .rn{font-weight:700}
+.veh{display:flex;align-items:center;gap:6px;margin-right:14px;font-size:12px;font-weight:700;color:var(--fg);background:var(--accent-soft);padding:4px 8px;border-radius:99px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.veh svg{width:14px;height:14px;color:var(--accent)}
+
+/* --- map (core Leaflet CSS, rewritten with tokens) --- */
+.mapwrap{position:relative;isolation:isolate;height:calc(100dvh - 150px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:340px;border-radius:var(--r);overflow:hidden;background:var(--surface-2)}
+#map{position:absolute;inset:0;z-index:0;background:var(--surface-2)}
+.notiles #map{background-color:var(--surface-2);background-image:linear-gradient(var(--rule) 1px,transparent 1px),linear-gradient(90deg,var(--rule) 1px,transparent 1px);background-size:48px 48px}
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;font:inherit}
+.leaflet-container.leaflet-touch-zoom{touch-action:pan-x pan-y}
+.leaflet-container.leaflet-touch-drag{touch-action:pinch-zoom}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom{touch-action:none}
+.leaflet-tile,.leaflet-marker-icon{user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
+.leaflet-container img.leaflet-tile{max-width:none!important;max-height:none!important;width:auto;padding:0}
+.leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-marker-pane{z-index:600}.leaflet-popup-pane{z-index:700}
+.leaflet-map-pane svg{z-index:200}
+.leaflet-zoom-animated{transform-origin:0 0}
+@media (prefers-reduced-motion:no-preference){ .leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)} }
+.leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
+.leaflet-marker-icon,.leaflet-pane>svg path{pointer-events:none}
+.leaflet-marker-icon.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive{pointer-events:auto;cursor:pointer}
+.leaflet-grab{cursor:grab}.leaflet-dragging .leaflet-grab{cursor:grabbing}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}.leaflet-right{right:0}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-right .leaflet-control{float:right}
+.leaflet-top .leaflet-control{margin-top:10px}.leaflet-left .leaflet-control{margin-left:10px}.leaflet-right .leaflet-control{margin-right:10px}.leaflet-bottom .leaflet-control{margin-bottom:0}
+.leaflet-bar{border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.leaflet-bar a{display:block;width:38px;height:38px;text-align:center;text-decoration:none;color:var(--fg);background:var(--surface);border-bottom:1px solid var(--rule);font:500 22px/38px var(--f-body)}
+.leaflet-bar a:last-child{border-bottom:0}
+.leaflet-bar a.leaflet-disabled{color:var(--muted);opacity:.5}
+.leaflet-control-attribution{background:color-mix(in oklab,var(--surface) 80%,transparent);color:var(--muted);font-size:10px;padding:1px 6px;border-top-left-radius:6px}
+.leaflet-control-attribution a{color:var(--muted)}
+.pin{display:block;width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.pin.fav{background:var(--warn)}
+.pin.focus{width:24px;height:24px;margin:-3px;box-shadow:0 0 0 6px color-mix(in oklab,var(--accent) 30%,transparent),0 1px 4px rgba(0,0,0,.4)}
+.plabel{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--surface);color:var(--fg);padding:5px 9px;border-radius:8px;font:600 12.5px/1.2 var(--f-body);box-shadow:0 2px 8px rgba(0,0,0,.25);pointer-events:none}
+.me{display:block;width:18px;height:18px;border-radius:50%;background:#1F6FE0;border:3px solid #fff;box-shadow:0 0 0 7px rgba(31,111,224,.22)}
+.vdot{display:grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--lc);color:#fff;border:2px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.vdot svg{width:12px;height:12px}
+.maptop{position:absolute;top:10px;left:58px;right:10px;z-index:1001;display:flex;flex-direction:column;gap:6px;align-items:flex-start;pointer-events:none}
+.maptop>*{pointer-events:auto}
+.mapmsg{background:var(--surface);color:var(--fg);border-radius:10px;padding:8px 11px;font-size:12.5px;box-shadow:0 2px 8px rgba(0,0,0,.18);max-width:100%}
+.mapline{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:99px;padding:4px 4px 4px 4px;box-shadow:0 2px 8px rgba(0,0,0,.18);font-weight:600;font-size:13px}
+.mapline button{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2)}
+.maploc{position:absolute;right:10px;bottom:24px;z-index:1001;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
+.sheet-actions .iconbtn{height:40px;font-size:14px}
+
+.toast{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:30;max-width:520px;margin:0 auto;background:var(--fg);color:var(--bg);padding:12px 14px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><b>Halte</b><small>SF Muni</small></div>
+    <span class="updated" id="updated"></span>
+    <span class="chip" id="srcChip">DEMO</span>
+  </header>
+  <main id="view"></main>
+</div>
+
+<nav class="tabs" aria-label="Main menu"><div class="in">
+  <button data-tab="near"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Nearby</button>
+  <button data-tab="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>Map</button>
+  <button data-tab="fav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/></svg>Favorites</button>
+  <button data-tab="lines"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H14a4 4 0 0 1 0 8h-4a4 4 0 0 0 0 8h0M15.5 18"/></svg>Routes</button>
+  <button data-tab="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19z"/><path d="M12 10v4.5M12 17.3v.2"/></svg>Alerts</button>
+  <button data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
+</div></nav>
+
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" hidden role="dialog" aria-modal="true"></section>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(() => {
+/* ================= SAMPLE DATA (used until the 511 proxy is connected) ================= */
+const DEMO_LINES = [
+  ['J','Church','rail',{OB:'Balboa Park',IB:'Embarcadero'}],
+  ['K','Ingleside','rail',{OB:'Balboa Park',IB:'Embarcadero'}],
+  ['L','Taraval','rail',{OB:'SF Zoo',IB:'Embarcadero'}],
+  ['M','Ocean View','rail',{OB:'Balboa Park',IB:'Embarcadero'}],
+  ['N','Judah','rail',{OB:'Ocean Beach',IB:'Caltrain'}],
+  ['T','Third Street','rail',{OB:'Sunnydale',IB:'Chinatown'}],
+  ['F','Market & Wharves','rail',{OB:'Castro',IB:"Fisherman's Wharf"}],
+  ['PM','Powell-Mason','cable',{OB:'Bay & Taylor',IB:'Powell & Market'}],
+  ['PH','Powell-Hyde','cable',{OB:'Hyde & Beach',IB:'Powell & Market'}],
+  ['C','California','cable',{OB:'Van Ness',IB:'Drumm St'}],
+  ['7','Haight-Noriega','bus',{OB:'Ocean Beach',IB:'Ferry Plaza'}],
+  ['14','Mission','bus',{OB:'Daly City',IB:'Ferry Plaza'}],
+  ['14R','Mission Rapid','bus',{OB:'Daly City',IB:'Downtown'}],
+  ['30','Stockton','bus',{OB:'Marina',IB:'Caltrain'}],
+  ['38','Geary','bus',{OB:'Ocean Beach',IB:'Salesforce Transit Ctr'}],
+  ['38R','Geary Rapid','bus',{OB:'48th Ave',IB:'Salesforce Transit Ctr'}],
+  ['45','Union-Stockton','bus',{OB:'Lyon St',IB:'Caltrain'}],
+  ['49','Van Ness-Mission','bus',{OB:'City College',IB:'Fort Mason'}],
+];
+const SUB = ['Embarcadero','Montgomery','Powell','Civic Center','Van Ness'];
+const PATTERNS = { // stop order from the IB end to the OB end
+  J:[...SUB,'Church & Duboce','Church & 18th St','Church & 30th St','San Jose & Glen Park','Balboa Park'],
+  K:[...SUB,'Church','Castro','Forest Hill','West Portal','Junipero Serra & Ocean','Balboa Park'],
+  L:[...SUB,'Church','Castro','Forest Hill','West Portal','Taraval & 19th Ave','Taraval & 30th Ave','Taraval & 46th Ave','SF Zoo'],
+  M:[...SUB,'Church','Castro','Forest Hill','West Portal','St Francis Circle','19th Ave & Winston','Broad & Plymouth','Balboa Park'],
+  N:['4th & King (Caltrain)','2nd & King',...SUB,'Church & Duboce','Carl & Cole','9th Ave & Irving','Judah & 19th Ave','Judah & La Playa'],
+  T:['Chinatown–Rose Pak','Union Square/Market St','Yerba Buena/Moscone','4th & Brannan','4th & King','UCSF/Chase Center','3rd & 20th St','3rd & Palou','3rd & Le Conte','Sunnydale'],
+  F:["Jones & Beach",'Pier 39','Ferry Building','Market & 3rd St','Market & Powell','Market & 8th St','Market & Van Ness','Church & Market','Castro'],
+  PM:['Powell & Market','Powell & Sutter','Powell & California','Powell & Washington','Mason & Union','Bay & Taylor'],
+  PH:['Powell & Market','Powell & Sutter','Powell & California','Jackson & Hyde','Hyde & Lombard','Hyde & Beach'],
+  C:['California & Drumm','California & Kearny','California & Powell','California & Hyde','California & Van Ness'],
+  '7':['Ferry Plaza','Market & Powell','Market & Van Ness','Haight & Masonic','Haight & Stanyan','Lincoln & 9th Ave','Lincoln & 19th Ave','La Playa & Lincoln'],
+  '14':['Ferry Plaza','Mission & 1st St','Mission & 4th St','Mission & 8th St','Mission & 16th St','Mission & 24th St','Mission & 30th St','Mission & Geneva','Daly City BART'],
+  '14R':['Mission & 1st St','Mission & 4th St','Mission & 8th St','Mission & 16th St','Mission & 24th St','Mission & Geneva','Daly City BART'],
+  '30':['4th & King (Caltrain)','3rd & Market','Stockton & Sutter','Stockton & Columbus','Columbus & Union','North Point & Van Ness','Chestnut & Fillmore','Marina'],
+  '38':['Salesforce Transit Ctr','Geary & Powell','Geary & Van Ness','Geary & Fillmore','Geary & Masonic','Geary & Arguello','Geary & 25th Ave','Point Lobos & 48th Ave'],
+  '38R':['Salesforce Transit Ctr','Geary & Powell','Geary & Van Ness','Geary & Fillmore','Geary & Masonic','Geary & 25th Ave','Point Lobos & 48th Ave'],
+  '45':['4th & Townsend (Caltrain)','Stockton & Sutter','Stockton & Columbus','Union & Van Ness','Union & Fillmore','Lyon & Greenwich'],
+  '49':['North Point & Van Ness','Van Ness & Geary','Van Ness & Market','Mission & 16th St','Mission & 24th St','Mission & Geneva','City College'],
+};
+const MSUB = ['J','K','L','M','N'];
+const DEMO_STOPS = [
+  {id:'d01',name:'Powell Station · Outbound',lat:37.78440,lon:-122.40790,serves:MSUB.map(l=>[l,'OB'])},
+  {id:'d02',name:'Powell Station · Inbound',lat:37.78446,lon:-122.40782,serves:MSUB.map(l=>[l,'IB'])},
+  {id:'d03',name:'Market St & Powell St',lat:37.78480,lon:-122.40720,serves:[['F','OB'],['7','OB']]},
+  {id:'d04',name:'Market St & 5th St',lat:37.78360,lon:-122.40750,serves:[['F','IB'],['7','IB']]},
+  {id:'d05',name:'Union Square/Market St Station',lat:37.78770,lon:-122.40730,serves:[['T','OB'],['T','IB']]},
+  {id:'d06',name:'Geary St & Powell St',lat:37.78730,lon:-122.40830,serves:[['38','OB'],['38R','OB']]},
+  {id:'d07',name:"O'Farrell St & Powell St",lat:37.78640,lon:-122.40800,serves:[['38','IB'],['38R','IB']]},
+  {id:'d08',name:'Powell & Market · Cable car',lat:37.78470,lon:-122.40780,serves:[['PM','OB'],['PH','OB']]},
+  {id:'d09',name:'Mission St & 4th St',lat:37.78380,lon:-122.40390,serves:[['14','OB'],['14R','OB']]},
+  {id:'d10',name:'Stockton St & Sutter St',lat:37.78950,lon:-122.40680,serves:[['30','OB'],['45','OB']]},
+  {id:'d11',name:'California St & Powell St',lat:37.79200,lon:-122.40910,serves:[['C','OB'],['C','IB']]},
+  {id:'d12',name:'Montgomery Station · Outbound',lat:37.78900,lon:-122.40200,serves:MSUB.map(l=>[l,'OB'])},
+];
+const DEMO_ALERTS = [
+  {id:'a1',title:'N Judah replaced by buses between Carl & Cole and Ocean Beach',body:'Weekend track work. Shuttle buses stop at the nearest bus stops along Judah St.',lines:['N']},
+  {id:'a2',title:'Powell-Hyde delayed about 10 minutes',body:'Cable repair near Hyde & Lombard. Powell-Mason is running normally.',lines:['PH']},
+  {id:'a3',title:'Powell Station elevator at Hallidie Plaza is out of service',body:'Use the elevator at Market & 5th St.',lines:['J','K','L','M','N']},
+];
+const COLORS = {J:'#B8600B',K:'#2B78B0',L:'#7B3FA0',M:'#2E8653',N:'#1E4D9A',T:'#BE1E5C',F:'#8A6A2C',PM:'#7A4A1C',PH:'#7A4A1C',C:'#7A4A1C'};
+const PALETTE = ['#2B78B0','#2E8653','#7B3FA0','#B8600B','#BE1E5C','#1E4D9A','#006D77','#8A6A2C'];
+
+/* ================= STATE ================= */
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem('halte.'+k); return v ? JSON.parse(v) : d; }catch{ return d; } },
+  set(k,v){ try{ localStorage.setItem('halte.'+k, JSON.stringify(v)); }catch{} },
+};
+const UNION_SQ = {lat:37.7880, lon:-122.4075, label:'Union Square'};
+const S = {
+  mode:'demo', tab:'near', lines:[], stops:[], arr:{}, alerts:[], updated:null,
+  here: store.get('here', UNION_SQ),
+  fav: store.get('fav', []),
+  rem: store.get('rem', []),
+  set: Object.assign({theme:'system', hue:228, lead:3}, store.get('settings', {})),
+  sheet:null, lineFilter:'all', lineData:{},
+  map:null, mapFocus:null, mapLine:null,
+};
+
+/* ================= UTIL ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hash = s => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+const etaMin = iso => Math.round((new Date(iso) - Date.now()) / 60000);
+const hhmm = d => new Date(d).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+function dist(a, b){ const R=6371e3, r=x=>x*Math.PI/180; const dLat=r(b.lat-a.lat), dLon=r(b.lon-a.lon);
+  const h=Math.sin(dLat/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+const fmtDist = m => m < 1000 ? `${Math.round(m/10)*10} m · ${Math.max(1,Math.round(m/80))} min walk` : `${(m/1000).toFixed(1)} km`;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true, 4200); }
+
+function lineInfo(id){
+  const L = S.lines.find(l => l.id === id || l.code === id);
+  return L || {id, code:id, name:'', mode:/^[A-Z]$/.test(id)?'rail':'bus'};
+}
+function lineColor(L){ if (COLORS[L.code]) return COLORS[L.code]; if (/R$/.test(L.code)) return '#B3261E'; if (L.mode==='rail') return PALETTE[hash(L.code)%PALETTE.length]; return L.mode==='cable' ? '#7A4A1C' : '#3E4E5B'; }
+function badge(id, sm){ const L=lineInfo(id); return `<span class="badge ${L.mode}${sm?' sm':''}" style="--lc:${lineColor(L)}" aria-label="Route ${esc(L.code)}">${esc(L.code)}</span>`; }
+function headway(L){ return L.mode==='cable' ? 12 : /R$/.test(L.code) ? 7 : L.mode==='rail' ? 9 : 11; }
+
+const ICON = {
+  star:on=>`<svg width="22" height="22" viewBox="0 0 24 24" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/></svg>`,
+  bell:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>`,
+  close:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>`,
+  loc:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>`,
+  pulse:`<svg class="pulse" viewBox="0 0 10 10" fill="none" stroke="var(--live)" stroke-width="1.6" stroke-linecap="round"><path d="M2 8a6 6 0 0 1 6-6"/><path d="M2 5a3 3 0 0 1 3-3"/></svg>`,
+  veh:`<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="14" height="15" rx="3"/><rect x="7" y="18" width="3" height="3" rx="1"/><rect x="14" y="18" width="3" height="3" rx="1"/></svg>`,
+};
+
+/* ================= DATA SOURCE ================= */
+async function api(ep, params={}, ms=8000){
+  const u = new URL('api/511', location.href); u.searchParams.set('ep', ep);
+  for (const [k,v] of Object.entries(params)) u.searchParams.set(k, v);
+  const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), ms);
+  try { const r = await fetch(u, {signal:ctl.signal}); if (!r.ok) throw new Error('HTTP '+r.status); return await r.json(); }
+  finally { clearTimeout(to); }
+}
+
+function demoArrivals(stopId){
+  const st = DEMO_STOPS.find(s => s.id === stopId); if (!st) return [];
+  const nowS = Math.floor(Date.now()/1000), out = [];
+  for (const [l, d] of st.serves){
+    const L = DEMO_LINES.find(x=>x[0]===l), hw = headway({code:l, mode:L[2]})*60;
+    const h = hash(stopId+l+d); let first = (h % hw) - (nowS % hw); if (first < -30) first += hw;
+    const cycle = Math.floor((nowS + hw - first) / hw);
+    for (let i=0;i<3;i++){
+      const k = hash(l+d+(cycle+i)), slip = (k % 120) - 50;
+      out.push({ line:l, dest:L[3][d], dir:d, eta:new Date((nowS + first + i*hw + (i?slip:0))*1000).toISOString(),
+        rt: i===0 || k%4!==0, vehicle:`${l}-${1000 + (k%900)}`, occ:['seatsAvailable','seatsAvailable','standingAvailable','full'][k%4] });
+    }
+  }
+  return out.sort((a,b)=>new Date(a.eta)-new Date(b.eta));
+}
+function demoLine(id){
+  const L = DEMO_LINES.find(x=>x[0]===id), seq = PATTERNS[id] || [];
+  const hw = headway({code:id, mode:L[2]}), segMin = L[2]==='rail' ? 2.2 : 2.8, n = Math.max(2, Math.ceil(seq.length/3));
+  const dirs = [{dir:'OB', name:L[3].OB, stops:seq.map(n=>({id:n,name:n}))}, {dir:'IB', name:L[3].IB, stops:[...seq].reverse().map(n=>({id:n,name:n}))}];
+  const vehicles = [];
+  for (const d of dirs){
+    const t = Date.now() / (hw*60000) + (d.dir==='IB' ? .5 : 0);
+    for (let k=0;k<n;k++){
+      const p = ((t + k/n) % 1) * (seq.length - 1), next = Math.min(seq.length-1, Math.ceil(p + 0.001));
+      vehicles.push({line:id, dir:d.dir, vehicle:`${id}-${1100+k}`, nextStop:d.stops[next].id, eta:new Date(Date.now() + (next-p)*segMin*60000).toISOString()});
+    }
+  }
+  return {directions:dirs, vehicles};
+}
+
+async function loadBase(){
+  if (S.mode === 'demo'){
+    S.lines = DEMO_LINES.map(([code,name,mode]) => ({id:code, code, name, mode}));
+    S.stops = DEMO_STOPS; S.alerts = DEMO_ALERTS; return;
+  }
+  const cached = store.get('base', null);
+  if (cached && Date.now() - cached.t < 86400000){ S.lines = cached.lines; S.stops = cached.stops; }
+  else {
+    const [lines, stops] = await Promise.all([api('lines',{},20000), api('stops',{},30000)]);
+    S.lines = lines; S.stops = stops; store.set('base', {t:Date.now(), lines, stops});
+  }
+  api('alerts').then(a => { S.alerts = a; if (S.tab==='alerts') renderTab(); }).catch(()=>{});
+}
+
+function nearStops(n=6){ return S.stops.map(s => ({...s, d:dist(S.here, s)})).sort((a,b)=>a.d-b.d).slice(0,n); }
+function watchedIds(){
+  const ids = new Set(nearStops().map(s=>s.id)); S.fav.forEach(f=>ids.add(f.id));
+  if (S.sheet?.type==='stop') ids.add(S.sheet.id); return [...ids];
+}
+async function refreshArrivals(){
+  const ids = watchedIds();
+  if (S.mode === 'demo'){ ids.forEach(id => S.arr[id] = demoArrivals(id)); S.updated = new Date(); }
+  else {
+    try { const r = await api('arrivals', {stops:ids.join(',')}); Object.assign(S.arr, r.stops); S.updated = new Date(r.updated); }
+    catch(e){ toast('Couldn’t load the latest times. Trying again shortly.'); }
+  }
+  renderDyn(); if (S.sheet) renderSheet();
+}
+
+/* ================= RENDER: pieces ================= */
+const OCC = {seatsAvailable:['Seats available',1], standingAvailable:['Standing room',2], full:['Full',3]};
+function occ(o){ const v = OCC[o]; if (!v) return ''; return `<span class="occ${v[1]===3?' full':''}" title="${v[0]}">${[1,2,3].map(i=>`<i class="${i<=v[1]?'on':''}"></i>`).join('')} ${v[0]}</span>`; }
+
+function groups(list){
+  const m = new Map();
+  for (const a of list || []){ if (etaMin(a.eta) < 0) continue; const k = a.line+'|'+a.dest;
+    if (!m.has(k)) m.set(k, {line:a.line, dest:a.dest, dir:a.dir, items:[]}); m.get(k).items.push(a); }
+  return [...m.values()].sort((a,b)=>new Date(a.items[0].eta)-new Date(b.items[0].eta));
+}
+function depRow(stop, g, withBell){
+  const L = lineInfo(g.line), a = g.items[0], m = etaMin(a.eta);
+  const next = g.items.slice(1,3).map(x=>Math.max(0,etaMin(x.eta)));
+  const key = `${stop.id}|${g.line}|${g.dest}|${a.eta}`, on = S.rem.some(r=>r.key===key);
+  return `<div class="dep${withBell?' withbell':''}">
+    ${badge(g.line)}
+    <div style="min-width:0"><div class="dest">${esc(g.dest || L.name)}</div>
+      <div class="sub"><span>${esc(L.name)}</span>${occ(a.occ)}</div></div>
+    <div class="eta"><div class="big ${a.rt?'rt':''}">${a.rt?ICON.pulse:''}<b>${m<=0?'Kini':m}</b>${m>0?'<small>min</small>':''}</div>
+      ${a.rt?'':'<span class="sched">scheduled</span>'}
+      ${next.length?`<span class="next">then ${next.join(', ')} min</span>`:''}</div>
+    ${withBell?`<button class="bell" aria-pressed="${on}" aria-label="Remind me" data-bell="${esc(key)}" data-name="${esc(stop.name)}" data-line="${esc(L.code)}" data-dest="${esc(g.dest)}" data-eta="${esc(a.eta)}">${ICON.bell}</button>`:''}
+  </div>`;
+}
+function stopCard(s, max=4){
+  const gs = groups(S.arr[s.id]), fav = S.fav.some(f=>f.id===s.id);
+  return `<article class="card">
+    <div style="display:flex;align-items:center;padding-right:8px">
+      <button class="card-h" data-open-stop="${esc(s.id)}"><span class="nm">${esc(s.name)}</span>${s.d!=null?`<span class="dist">${fmtDist(s.d)}</span>`:''}</button>
+      <button class="star" data-fav="${esc(s.id)}" aria-pressed="${fav}" aria-label="${fav?'Remove from':'Add to'} favorites">${ICON.star(fav)}</button>
+    </div>
+    ${S.arr[s.id] === undefined ? '<div class="empty">Loading…</div>' : gs.length ? gs.slice(0,max).map(g=>depRow(s,g,false)).join('') : '<div class="empty">No arrivals in the next 90 minutes.</div>'}
+  </article>`;
+}
+
+/* ================= RENDER: tab ================= */
+function renderTab(){
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab===S.tab ? 'page' : 'false'));
+  const v = $('#view');
+  if (S.map){ S.map.remove(); S.map = null; }
+  const demoNote = S.mode==='demo' ? `<div class="note"><b>Demo mode.</b> These times are sample data. Once the app is deployed with a 511.org key, live Muni data appears automatically.</div>` : '';
+  if (S.tab==='near'){
+    v.innerHTML = `${demoNote}
+      <div class="searchrow"><input class="search" id="q" type="search" placeholder="Search stops, e.g. Castro" autocomplete="off" aria-label="Search stops">
+      <button class="iconbtn" id="locBtn" aria-label="Use my location">${ICON.loc}</button></div>
+      <div class="results" id="sr"></div>
+      <div class="h"Near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
+      <div class="credit">Transit data: 511.org</div>`;
+  } else if (S.tab==='map'){
+    v.innerHTML = `<div class="mapwrap" id="mapwrap"><div id="map" aria-label="Stop map"></div>
+      <div class="maptop" id="maptop"></div>
+      <button class="iconbtn maploc" id="mapLoc" aria-label="Back to my location">${ICON.loc}</button></div>`;
+    initMap();
+  } else if (S.tab==='fav'){
+    v.innerHTML = `<div class="h">Favorite stops</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>`;
+  } else if (S.tab==='lines'){
+    v.innerHTML = `<div class="seg" role="group" aria-label="Type">
+        ${[['all','All'],['rail','Metro'],['bus','Bus'],['cable','Cable car']].map(([k,t])=>`<button data-lf="${k}" aria-pressed="${S.lineFilter===k}">${t}</button>`).join('')}</div>
+      <input class="search" id="lq" type="search" placeholder="Search routes, e.g. 38 or Geary" autocomplete="off" aria-label="Search routes">
+      <div id="dyn"></div>`;
+  } else if (S.tab==='alerts'){
+    v.innerHTML = `${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> The alerts below are examples.</div>':''}<div class="h">Service alerts</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>`;
+  } else {
+    v.innerHTML = renderSettings();
+  }
+  renderDyn();
+}
+
+function renderDyn(){
+  const d = $('#dyn');
+  $('#updated').textContent = S.updated ? hhmm(S.updated) : '';
+  const chip = $('#srcChip'); chip.textContent = S.mode==='live' ? 'LIVE' : 'DEMO'; chip.className = 'chip' + (S.mode==='live'?' live':'');
+  if (!d) return;
+  if (S.tab==='near') d.innerHTML = nearStops().map(s=>stopCard(s)).join('');
+  else if (S.tab==='fav') d.innerHTML = S.fav.length ? S.fav.map(f=>stopCard(S.stops.find(s=>s.id===f.id) || f, 6)).join('')
+      : `<div class="note">No favorites yet. Tap the star on any stop to save it here. There’s no limit.</div>`;
+  else if (S.tab==='lines'){
+    const q = ($('#lq')?.value || '').trim().toLowerCase();
+    const ls = S.lines.filter(l => (S.lineFilter==='all' || l.mode===S.lineFilter) && (!q || (l.code+' '+l.name).toLowerCase().includes(q)))
+      .sort((a,b)=>(a.mode===b.mode?0:a.mode==='rail'?-1:b.mode==='rail'?1:a.mode==='cable'?-1:1) || a.code.localeCompare(b.code,'en',{numeric:true}));
+    d.innerHTML = ls.length ? `<div class="linelist">${ls.map(l=>`<button class="lrow" data-open-line="${esc(l.id)}">${badge(l.id)}<span class="t">${esc(l.name)}</span><span class="m">${{rail:'Metro',bus:'Bus',cable:'Cable car'}[l.mode]}</span></button>`).join('')}</div>`
+      : '<div class="note">No matching routes.</div>';
+  } else if (S.tab==='alerts'){
+    d.innerHTML = S.alerts.length ? S.alerts.map(a=>`<article class="alert"><div class="ls">${a.lines.map(l=>badge(l,true)).join('')}</div><h3>${esc(a.title)}</h3>${a.body?`<p>${esc(a.body)}</p>`:''}</article>`).join('')
+      : '<div class="note">No service alerts right now.</div>';
+  }
+}
+
+function renderSettings(){
+  const hues = [[228,'Bay'],[168,'Cypress'],[45,'Sunset'],[330,'Fuchsia'],[268,'Fog']];
+  return `<div class="h">Appearance</div>
+  <div class="set">
+    <span class="lbl">Theme</span>
+    <div class="seg">${[['system','System'],['light','Light'],['dark','Dark']].map(([k,t])=>`<button data-theme-set="${k}" aria-pressed="${S.set.theme===k}">${t}</button>`).join('')}</div>
+    <span class="lbl">Accent color</span>
+    <div class="sw">${hues.map(([h,n])=>`<button data-hue="${h}" style="--h:${h}" aria-pressed="${S.set.hue===h}" aria-label="${n}" title="${n}"></button>`).join('')}</div>
+  </div>
+  <div class="h">Reminders</div>
+  <div class="set">
+    <label for="lead">Remind me before the vehicle arrives</label>
+    <select id="lead">${[1,2,3,5,8,10].map(n=>`<option value="${n}"${S.set.lead===n?' selected':''}>${n} min before</option>`).join('')}</select>
+    <span class="hint">Tap the bell next to a departure in a stop’s details. Alerts appear while the app is open or running in the background.</span>
+  </div>
+  <div class="h">Everything included</div>
+  <div class="set feat">
+    <span>Unlimited favorites</span><span>On</span>
+    <span>Live vehicle positions along routes</span><span>On</span>
+    <span>Departure reminders</span><span>On</span>
+    <span>Crowding levels</span><span>On</span>
+    <span>Themes and accent colors</span><span>On</span>
+    <span>No ads</span><span>On</span>
+  </div>
+  <div class="h">Data source</div>
+  <div class="set">
+    <span>${S.mode==='live' ? 'Connected to 511.org (Muni, real time).' : 'Demo mode: the 511 server isn’t set up yet, so the app is showing sample data.'}</span>
+    <button class="danger" id="reset">Clear favorites, reminders and saved data</button>
+  </div>
+  <div class="credit">Halte SF · Transit data: 511.org · Not an official SFMTA app</div>`;
+}
+
+/* ================= MAP ================= */
+const isDark = () => { const t = document.documentElement.getAttribute('data-theme'); return t ? t==='dark' : matchMedia('(prefers-color-scheme: dark)').matches; };
+const stopById = id => S.stops.find(s=>s.id===id);
+function lineCoords(id, dir){
+  const d = S.lineData[id]?.directions?.find(x=>x.dir===dir) || S.lineData[id]?.directions?.[0];
+  return (d?.stops || []).map(s=>stopById(s.id)).filter(s=>s && s.lat);
+}
+function mapMsg(){
+  const top = $('#maptop'); if (!top) return;
+  const parts = [];
+  if (S.mapLine){ const L = lineInfo(S.mapLine.id);
+    parts.push(`<div class="mapline">${badge(L.id,true)}<span>${esc(L.name)}</span><button data-clear-line aria-label="Hide route">${ICON.close}</button></div>`); }
+  if ($('#mapwrap')?.classList.contains('notiles'))
+    parts.push(`<div class="mapmsg">Street map can’t load in this preview. Stop positions are still accurate, and the full street map appears in the installed version.</div>`);
+  else if (S.mode==='live' && S.map && S.map.getZoom() < 15)
+    parts.push(`<div class="mapmsg">Zoom in to see stops.</div>`);
+  top.innerHTML = parts.join('');
+}
+function initMap(){
+  if (!window.L){ $('#map').innerHTML = '<div class="note" style="margin:12px">The map couldn’t load. Check your connection and open this tab again.</div>'; return; }
+  const focus = S.mapFocus && stopById(S.mapFocus);
+  const m = L.map('map', {zoomControl:true, attributionControl:true})
+    .setView(focus ? [focus.lat, focus.lon] : [S.here.lat, S.here.lon], focus ? 17 : 16);
+  m.attributionControl.setPrefix(false);
+  S.map = m;
+  let fails = 0;
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark()?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`, {
+    maxZoom:19, subdomains:'abcd', attribution:'© OpenStreetMap · © CARTO · Data 511.org',
+  }).on('tileerror', () => { if (++fails === 2){ $('#mapwrap')?.classList.add('notiles'); mapMsg(); } }).addTo(m);
+  S.stopLayer = L.layerGroup().addTo(m);
+  S.lineLayer = L.layerGroup().addTo(m);
+  L.marker([S.here.lat, S.here.lon], {icon:L.divIcon({className:'', html:'<span class="me"></span>', iconSize:[18,18], iconAnchor:[9,9]}), interactive:false, keyboard:false}).addTo(m);
+  m.on('moveend', drawStops);
+  drawLine(); drawStops();
+}
+function drawStops(){
+  if (!S.map) return;
+  S.stopLayer.clearLayers(); mapMsg();
+  if (S.mode==='live' && S.map.getZoom() < 15) return;
+  const b = S.map.getBounds().pad(0.1), c = S.map.getCenter();
+  const inView = S.stops.filter(s => b.contains([s.lat, s.lon]))
+    .map(s => ({s, d:(s.lat-c.lat)**2 + (s.lon-c.lng)**2})).sort((x,y)=>x.d-y.d).slice(0, 250);
+  for (const {s} of inView){
+    const fav = S.fav.some(f=>f.id===s.id), foc = s.id===S.mapFocus;
+    L.marker([s.lat, s.lon], {
+      icon: L.divIcon({className:'', iconSize:[18,18], iconAnchor:[9,9],
+        html:`<span class="pin${fav?' fav':''}${foc?' focus':''}"></span>${foc?`<span class="plabel">${esc(s.name)}</span>`:''}`}),
+      title: s.name, alt: s.name, zIndexOffset: foc ? 1000 : fav ? 500 : 0,
+    }).on('click', () => openSheet({type:'stop', id:s.id})).addTo(S.stopLayer);
+  }
+}
+function drawLine(){
+  if (!S.map || !S.mapLine) return;
+  S.lineLayer.clearLayers();
+  const {id, dir} = S.mapLine, pts = lineCoords(id, dir), color = lineColor(lineInfo(id));
+  if (pts.length < 2) return;
+  L.polyline(pts.map(p=>[p.lat,p.lon]), {color, weight:6, opacity:.9, lineCap:'round', lineJoin:'round', interactive:false}).addTo(S.lineLayer);
+  for (const v of (S.lineData[id]?.vehicles || []).filter(v=>!v.dir || v.dir===dir)){
+    const st = stopById(v.nextStop); if (!st) continue;
+    L.marker([st.lat, st.lon], {icon:L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,30],
+      html:`<span class="vdot" style="--lc:${color}">${ICON.veh}</span>`}), interactive:false, keyboard:false}).addTo(S.lineLayer);
+  }
+  if (!S.mapFocus) S.map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lon])), {padding:[30,30]});
+}
+function showOnMap(opts){ S.mapFocus = opts.stop || null; S.mapLine = opts.line || null; closeSheet(); S.tab = 'map'; renderTab(); window.scrollTo(0,0); }
+
+/* ================= SHEET ================= */
+function openSheet(s){ S.sheet = s; $('#scrim').hidden = false; $('#sheet').hidden = false; renderSheet();
+  if (s.type==='stop' && S.arr[s.id]===undefined) refreshArrivals();
+  if (s.type==='line') loadLine(s.id); }
+function closeSheet(){ S.sheet = null; $('#scrim').hidden = true; $('#sheet').hidden = true; }
+
+async function loadLine(id){
+  try { S.lineData[id] = S.mode==='demo' ? demoLine(id) : await api('line', {line:id}, 15000); }
+  catch { S.lineData[id] = {error:true}; }
+  if (S.sheet?.type==='line' && S.sheet.id===id){ if (!S.sheet.dir) S.sheet.dir = S.lineData[id].directions?.[0]?.dir; renderSheet(); }
+}
+
+function renderSheet(){
+  const s = S.sheet, el = $('#sheet'); if (!s) return;
+  const keep = el.querySelector('.sheet-b')?.scrollTop || 0;
+  if (s.type==='stop'){
+    const st = S.stops.find(x=>x.id===s.id) || S.fav.find(x=>x.id===s.id) || {id:s.id, name:s.id};
+    const fav = S.fav.some(f=>f.id===st.id), gs = groups(S.arr[st.id]);
+    el.innerHTML = `<div class="sheet-h"><h2>${esc(st.name)}<div class="meta">${S.mode==='live'?`Stop #${esc(st.id)} · `:''}${st.lat?fmtDist(dist(S.here, st)):''}</div></h2>
+        <button class="star" data-fav="${esc(st.id)}" aria-pressed="${fav}" aria-label="Favorite">${ICON.star(fav)}</button>
+        <button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b">${st.lat?`<div class="sheet-actions"><button class="iconbtn ghost" data-map-stop="${esc(st.id)}">${ICON.loc} Show on map</button></div>`:''}
+      <div class="card">${S.arr[st.id]===undefined?'<div class="empty" style="padding-top:12px">Loading…</div>': gs.length ? gs.map(g=>depRow(st,g,true)).join('') : '<div class="empty" style="padding-top:12px">No arrivals in the next 90 minutes.</div>'}</div>
+      <div class="note">Green times with a signal icon are tracked live. “Scheduled” means the time comes from the timetable.</div></div>`;
+  } else {
+    const L = lineInfo(s.id), data = S.lineData[s.id], color = lineColor(L);
+    let body;
+    if (!data) body = '<div class="note">Loading route…</div>';
+    else if (data.error) body = '<div class="note">This route couldn’t load. Try again in a moment.</div>';
+    else {
+      const d = data.directions.find(x=>x.dir===s.dir) || data.directions[0];
+      const vs = data.vehicles.filter(v => !d || v.dir===d.dir || !v.dir);
+      const canMap = lineCoords(s.id, d?.dir).length >= 2;
+      body = `${canMap?`<div class="sheet-actions"><button class="iconbtn ghost" data-map-line="${esc(s.id)}" data-map-dir="${esc(d.dir)}">${ICON.loc} Show route on map</button></div>`:''}
+        <div class="seg">${data.directions.map(x=>`<button data-dir="${esc(x.dir)}" aria-pressed="${x.dir===d?.dir}">To ${esc(x.name)}</button>`).join('')}</div>
+        <div class="route" style="--lc:${color}">${(d?.stops||[]).map((st,i,a)=>{
+          const here = vs.filter(v=>v.nextStop===st.id).map(v=>Math.max(0,etaMin(v.eta)));
+          return `<div class="rs${i===0||i===a.length-1?' end':''}"><span class="track"></span><span class="node"></span><span class="rn">${esc(st.name)}</span>
+            ${here.length?`<span class="veh">${ICON.veh}${here.map(m=>m?m+' min':'arriving').join(' · ')}</span>`:''}</div>`; }).join('')}</div>
+        <div class="note">Vehicle markers show the stop each vehicle is heading to and when it gets there. ${vs.length} vehicles active in this direction.</div>`;
+    }
+    el.innerHTML = `<div class="sheet-h">${badge(L.id)}<h2>${esc(L.name || 'Route '+L.code)}<div class="meta">${{rail:'Muni Metro',bus:'Muni bus',cable:'Cable car'}[L.mode]}</div></h2>
+      <button class="close" data-close aria-label="Close">${ICON.close}</button></div><div class="sheet-b">${body}</div>`;
+  }
+  const b = el.querySelector('.sheet-b'); if (b) b.scrollTop = keep;
+}
+
+/* ================= THEME ================= */
+function applyTheme(){
+  const r = document.documentElement;
+  if (S.set.theme==='system') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', S.set.theme);
+  r.style.setProperty('--hue', S.set.hue);
+}
+const saveSet = () => { store.set('settings', S.set); applyTheme(); };
+
+/* ================= REMINDERS ================= */
+function checkReminders(){
+  const now = Date.now(), due = S.rem.filter(r => now >= r.at);
+  if (!due.length) return;
+  for (const r of due){
+    const msg = `${r.line} to ${r.dest} arrives in about ${S.set.lead} min at ${r.name}.`;
+    toast(msg); try { navigator.vibrate?.([200,100,200]); } catch{}
+    try { if (window.Notification?.permission==='granted') new Notification('Halte SF', {body:msg, tag:r.key}); } catch{}
+  }
+  S.rem = S.rem.filter(r => now < r.at); store.set('rem', S.rem); if (S.sheet) renderSheet();
+}
+
+/* ================= INTERACTION ================= */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button, .scrim'); if (!t) return;
+  const ds = t.dataset;
+  if (ds.tab){ if (ds.tab==='map'){ S.mapFocus = null; S.mapLine = null; }
+    S.tab = ds.tab; renderTab(); window.scrollTo(0,0); if (ds.tab!=='settings' && ds.tab!=='map') refreshArrivals(); return; }
+  if (ds.mapStop){ showOnMap({stop:ds.mapStop}); return; }
+  if (ds.mapLine){ showOnMap({line:{id:ds.mapLine, dir:ds.mapDir}}); return; }
+  if ('clearLine' in ds){ S.mapLine = null; S.lineLayer?.clearLayers(); mapMsg(); return; }
+  if (t.id==='mapLoc'){ S.map?.setView([S.here.lat, S.here.lon], 16); return; }
+  if (t.id==='scrim' || 'close' in ds){ closeSheet(); return; }
+  if (ds.openStop){ openSheet({type:'stop', id:ds.openStop}); return; }
+  if (ds.openLine){ openSheet({type:'line', id:ds.openLine}); return; }
+  if (ds.dir){ S.sheet.dir = ds.dir; renderSheet(); return; }
+  if (ds.lf){ S.lineFilter = ds.lf; document.querySelectorAll('[data-lf]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.lf===ds.lf)); renderDyn(); return; }
+  if (ds.fav){
+    const i = S.fav.findIndex(f=>f.id===ds.fav);
+    if (i>=0){ S.fav.splice(i,1); toast('Removed from favorites.'); }
+    else { const st = S.stops.find(s=>s.id===ds.fav); S.fav.push({id:st.id, name:st.name, lat:st.lat, lon:st.lon}); toast('Saved to favorites.'); }
+    store.set('fav', S.fav); renderDyn(); if (S.tab==='map') drawStops(); if (S.sheet) renderSheet(); return;
+  }
+  if (ds.bell){
+    const i = S.rem.findIndex(r=>r.key===ds.bell);
+    if (i>=0){ S.rem.splice(i,1); toast('Reminder canceled.'); }
+    else {
+      const at = new Date(ds.eta).getTime() - S.set.lead*60000;
+      if (at <= Date.now()){ toast(`This vehicle arrives in less than ${S.set.lead} min.`); return; }
+      S.rem.push({key:ds.bell, at, name:ds.name, line:ds.line, dest:ds.dest});
+      toast(`You’ll be reminded at ${hhmm(at)}.`);
+      try { if (window.Notification && Notification.permission==='default') await Notification.requestPermission(); } catch{}
+    }
+    store.set('rem', S.rem); renderSheet(); return;
+  }
+  if (ds.themeSet){ S.set.theme = ds.themeSet; saveSet(); renderTab(); return; }
+  if (ds.hue){ S.set.hue = +ds.hue; saveSet(); renderTab(); return; }
+  if (t.id==='reset'){ if (t.dataset.armed){ ['fav','rem','base','here','settings'].forEach(k=>{try{localStorage.removeItem('halte.'+k)}catch{}}); location.reload(); }
+    else { t.dataset.armed = '1'; t.textContent = 'Tap again to clear everything'; } return; }
+  if (t.id==='locBtn'){
+    if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
+    toast('Finding your location…');
+    navigator.geolocation.getCurrentPosition(p => {
+      S.here = {lat:p.coords.latitude, lon:p.coords.longitude, label:'you'}; store.set('here', S.here);
+      toast('Showing stops near you.'); renderTab(); refreshArrivals();
+    }, () => toast('Location permission was denied or unavailable. Staying at Union Square.'), {enableHighAccuracy:true, timeout:10000});
+    return;
+  }
+  if (t.classList.contains('res')){ openSheet({type:'stop', id:t.dataset.stop}); return; }
+});
+document.addEventListener('input', e => {
+  if (e.target.id==='q'){
+    const q = e.target.value.trim().toLowerCase(), sr = $('#sr');
+    if (q.length < 2){ sr.innerHTML = ''; return; }
+    const hits = S.stops.filter(s=>s.name.toLowerCase().includes(q)).map(s=>({...s,d:dist(S.here,s)})).sort((a,b)=>a.d-b.d).slice(0,8);
+    sr.innerHTML = hits.length ? hits.map(s=>`<button class="res" data-stop="${esc(s.id)}">${esc(s.name)}<span>${fmtDist(s.d)}</span></button>`).join('') : '<div class="res">No stops with that name.</div>';
+  }
+  if (e.target.id==='lq') renderDyn();
+});
+document.addEventListener('change', e => { if (e.target.id==='lead'){ S.set.lead = +e.target.value; saveSet(); toast(`Reminders: ${S.set.lead} min before arrival.`); } });
+document.addEventListener('keydown', e => { if (e.key==='Escape' && S.sheet) closeSheet(); });
+
+/* ================= START ================= */
+async function boot(){
+  applyTheme(); renderTab();
+  try { const p = await api('ping', {}, 4000); if (p.ok) S.mode = 'live'; } catch {}
+  try { await loadBase(); } catch { S.mode = 'demo'; await loadBase(); toast('The data server isn’t ready, so sample data is shown.'); }
+  renderTab(); refreshArrivals();
+  setInterval(refreshArrivals, S.mode==='live' ? 60000 : 30000);
+  setInterval(() => { renderDyn(); if (S.sheet) renderSheet(); checkReminders(); }, 15000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshArrivals(); });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+boot();
+})();
+</script>
+
+</body></html>
