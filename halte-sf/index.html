@@ -350,6 +350,14 @@ body.mapmode main#view{position:fixed;left:0;right:0;top:0;bottom:var(--tabh,cal
 .spotpin.park{background:var(--navy-2);border-radius:50%;transform:none}
 .seg.chips button{font-size:13px;padding:7px 4px}
 .lrow .kind i{width:12px;height:12px}
+.pc.col{flex-direction:column;align-items:stretch;gap:8px}
+.pc.col .pc-d{flex-direction:column;align-items:stretch;gap:6px}
+.pc-h{text-align:left;padding:0}
+button.pc-r{padding:2px}
+.pc-line{display:flex;align-items:center;gap:8px;font-size:13.5px}
+.pc-line span{flex:1;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-line b{font:600 15px/1 var(--f-num);color:var(--accent);white-space:nowrap}
+.cpin.fixed{position:static;margin:0;width:30px;height:42px}
 .me2{position:relative;display:block;width:20px;height:20px}
 .me2 .halo{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(46,110,214,.16)}
 .me2 .cone{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;transition:transform .2s linear}
@@ -806,7 +814,7 @@ function depRow(stop, g, withBell){
   const L = lineInfo(g.line), a = g.items[0], m = etaMin(a.eta);
   const next = g.items.slice(1,3).map(x=>Math.max(0,etaMin(x.eta)));
   const key = `${stop.id}|${g.line}|${g.dest}|${a.eta}`, on = S.rem.some(r=>r.key===key);
-  const track = a.vehicle ? ` data-track="${esc(a.vehicle)}" data-tline="${esc(g.line)}" data-tdir="${esc(a.dir||'')}"` : '';
+  const track = a.vehicle ? ` data-track="${esc(a.vehicle)}" data-tline="${esc(g.line)}" data-tdir="${esc(a.dir||'')}" data-tstop="${esc(stop.id)}"` : '';
   return `<div class="dep${withBell?' withbell':''}"${track}>
     ${badge(g.line)}
     <div style="min-width:0"><div class="dest">${esc(g.dest || L.name)}</div>
@@ -835,7 +843,7 @@ function renderTab(){
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab===group ? 'page' : 'false'));
   document.body.classList.toggle('mapmode', isMapTab());
   const v = $('#view');
-  if (S.map){ S.map.remove(); S.map = null; S.meMarker = null; }
+  if (S.map){ S.map.remove(); S.map = null; S.meMarker = null; S.pinMarker = null; }
   const sky = SKYLINE, title = t => `${sky}<h1 class="pagetitle">${t}</h1>`;
   const backMore = `<button class="iconbtn ghost" data-tab="more" style="align-self:flex-start;height:36px;font-size:13px">‹ More</button>`;
   const demoNote = S.mode==='demo' ? `<div class="note"><b>Demo mode.</b> These times are sample data. Once the app is deployed with a 511.org key, live Muni data appears automatically.</div>` : '';
@@ -1233,16 +1241,36 @@ function placeOverlays(){
   const el = $('#nsheet'), pin = $('#cpin'), card = $('#pincard'); if (!el) return;
   const top = el.offsetTop, mh = $('.mhead'), headB = mh ? mh.offsetTop + mh.offsetHeight : 60;
   const browsing = !!S.browse[S.tab], full = S.pos[S.tab]==='full';
-  if (pin){ pin.hidden = !browsing || full; pin.style.top = Math.round((headB + top)/2 - 42) + 'px'; }
+  if (pin){ pin.hidden = !browsing || full || !!linePin(); pin.style.top = Math.round((headB + top)/2 - 42) + 'px'; }
   if (card){ card.hidden = !browsing || full || S.tab!=='near' || !card.innerHTML; card.style.bottom = ($('#view').clientHeight - top + 10) + 'px'; }
+}
+const linePin = () => S.tab==='near' && S.browse.near && S.mapLine && S.pinStop ? stopById(S.pinStop) : null;
+function drawLinePin(){
+  const st = linePin();
+  if (!st || !S.map){ S.pinMarker?.remove(); S.pinMarker = null; return; }
+  if (!S.pinMarker){ const el = document.createElement('div'); el.className = 'cpin fixed'; el.innerHTML = PIN_SVG;
+    S.pinMarker = new maplibregl.Marker({element:el, anchor:'bottom'}).setLngLat([st.lon, st.lat]).addTo(S.map._ml); }
+  else S.pinMarker.setLngLat([st.lon, st.lat]);
+}
+function leaveLinePin(){
+  S.pinStop = null; drawLinePin();
+  if (S.browse.near && S.map) S.map._ml.easeTo({center:[S.browse.near.lon, S.browse.near.lat], duration:400});
+  renderPinCard();
 }
 function renderPinCard(){
   const card = $('#pincard'); if (!card) return;
+  drawLinePin();
   if (S.tab!=='near' || !S.browse.near){ card.innerHTML = ''; placeOverlays(); return; }
-  const st = nearStops()[0]; if (!st){ card.innerHTML = ''; placeOverlays(); return; }
-  const gs = groups(S.arr[st.id]).slice(0, 3);
-  card.innerHTML = `<button class="pc" data-open-stop="${esc(st.id)}"><span class="pc-h"><b>${esc(st.name)}</b><small>Closest stop · ${fmtAway(st.d, 'near')}</small></span>
-    <span class="pc-d">${S.arr[st.id]===undefined ? '<small>Loading times…</small>' : gs.length ? gs.map(g => { const m = etaMin(g.items[0].eta); return `<span class="pc-r">${badge(g.line, true)}<b>${m<=0?'Now':m+'′'}</b></span>`; }).join('') : '<small>No departures soon</small>'}</span></button>`;
+  const lp = linePin();
+  const st = lp ? {...lp, d:dist(S.browse.near, lp)} : nearStops()[0]; if (!st){ card.innerHTML = ''; placeOverlays(); return; }
+  let gs = groups(S.arr[st.id]);
+  if (lp) gs = gs.filter(g => g.line===S.mapLine.id); else gs = gs.slice(0, 4);
+  const L = lp ? lineInfo(S.mapLine.id) : null;
+  const times = lp
+    ? (gs.length ? gs.map(g => `<span class="pc-line">${badge(g.line, true)}<span>to ${esc(g.dest)}</span><b>${g.items.slice(0,3).map(x => { const m = etaMin(x.eta); return m<=0 ? 'Now' : m+'′'; }).join(' · ')}</b></span>`).join('') : `<small>No ${esc(L.code)} departures from this stop soon</small>`)
+    : (S.arr[st.id]===undefined ? '<small>Loading times…</small>' : gs.length ? gs.map(g => { const m = etaMin(g.items[0].eta); return `<button class="pc-r" data-pin-line="${esc(g.line)}" data-pin-dir="${esc(g.dir||'')}" data-pin-stop="${esc(st.id)}" aria-label="Show route ${esc(lineInfo(g.line).code)} on the map">${badge(g.line, true)}<b>${m<=0?'Now':m+'′'}</b></button>`; }).join('') : '<small>No departures soon</small>');
+  card.innerHTML = `<div class="pc${lp ? ' col' : ''}"><button class="pc-h" data-open-stop="${esc(st.id)}"><b>${esc(st.name)}</b><small>${lp ? 'Pinned stop · tap for all departures' : 'Closest stop · ' + fmtAway(st.d, 'near') + ' · tap a route to see it'}</small></button>
+    <span class="pc-d">${times}</span></div>`;
   placeOverlays();
 }
 let browseT = null;
@@ -1443,12 +1471,12 @@ async function initMap(){
   S.vehLayer = L.layerGroup().addTo(m);
   updateMe();
   m._ml.on('dragstart', e => { if (e.originalEvent){ S.userMoved = true; if (S.follow){ S.follow = false; updMapBtns(); } } });
-  m._ml.on('moveend', () => { if (S.userMoved){ S.userMoved = false; if (!S.follow && S.tab==='near') onBrowse(); } });
+  m._ml.on('moveend', () => { if (S.userMoved){ S.userMoved = false; if (!S.follow && S.tab==='near' && !S.mapLine && !S.mapVeh) onBrowse(); } });
   m._ml.on('rotate', updMapBtns);
   setSheetPos(S.pos[S.tab], false);
   if (S.browse[S.tab] || v0 || focus || S.mapLine || S.mapHill || S.mapSpot || S.hillPick?.picking || S.pickSpot) S.follow = false;
   startWatch(false); updMapBtns(); renderPinCard();
-  if (S.browse[S.tab]) m._ml.jumpTo({center:[S.browse[S.tab].lon, S.browse[S.tab].lat]});
+  if (S.browse[S.tab] && !v0 && !focus && !S.mapLine) m._ml.jumpTo({center:[S.browse[S.tab].lon, S.browse[S.tab].lat]});
   if (S.gps && S.follow) followCenter(true);
   m.on('moveend', () => { drawStops(); drawSpots(); drawHills(); drawVehicles(); });
   m.on('click', ev => {
@@ -1569,7 +1597,11 @@ async function showOnMap(opts){
   if (opts.spot) S.spotSeg = 'spots'; if (opts.hill) S.spotSeg = 'hills';
   S.mapFocus = opts.stop || null; S.mapLine = opts.line || null; S.mapVeh = opts.veh || null;
   S.centerVeh = !!opts.veh; S.lineFitted = false;
-  closeSheet(); S.tab = (opts.spot || opts.hill) ? 'spots' : 'near'; S.pos[S.tab] = 'peek'; S.browse[S.tab] = null; renderTab(); window.scrollTo(0,0);
+  closeSheet(); S.tab = (opts.spot || opts.hill) ? 'spots' : 'near'; S.pos[S.tab] = 'peek';
+  const ps = opts.pinStop && stopById(opts.pinStop);
+  if (S.tab==='near' && ps && S.mapLine){ S.pinStop = ps.id; S.browse.near = {lat:ps.lat, lon:ps.lon}; }
+  else { S.browse[S.tab] = null; S.pinStop = null; }
+  renderTab(); window.scrollTo(0,0);
   if (S.mapLine && !S.lineData[S.mapLine.id]){ await loadLine(S.mapLine.id); drawLine(); }
 }
 
@@ -1768,10 +1800,12 @@ document.addEventListener('click', async e => {
     S.tab = ds.tab; renderTab(); window.scrollTo(0,0); if (!['settings','more','lines','alerts'].includes(ds.tab)) refreshArrivals(); return; }
   if (ds.mapStop){ showOnMap({stop:ds.mapStop}); return; }
   if (ds.mapLine){ showOnMap({line:{id:ds.mapLine, dir:ds.mapDir}}); return; }
-  if ('clearLine' in ds){ S.mapLine = null; S.lineLayer?.clearLayers(); drawVehicles(); mapMsg(); return; }
-  if (ds.track){ showOnMap({veh:{line:ds.tline, vehicle:ds.track}, line:{id:ds.tline, dir:ds.tdir}}); return; }
+  if ('clearLine' in ds){ S.mapLine = null; S.mapVeh = null; S.lineLayer?.clearLayers(); drawVehicles(); mapMsg(); leaveLinePin(); return; }
+  if (ds.track){ showOnMap({veh:{line:ds.tline, vehicle:ds.track}, line:{id:ds.tline, dir:ds.tdir}, pinStop:ds.tstop}); return; }
+  if (ds.pinLine){ S.pinStop = ds.pinStop; S.mapLine = {id:ds.pinLine, dir:ds.pinDir}; S.mapVeh = null; S.lineFitted = false;
+    if (!S.lineData[ds.pinLine]) await loadLine(ds.pinLine); drawLine(); drawVehicles(); mapMsg(); renderPinCard(); return; }
   if (ds.vehRoute){ S.mapLine = {id:ds.vehRoute, dir:ds.vehDir}; S.lineFitted = true; if (!S.lineData[ds.vehRoute]) await loadLine(ds.vehRoute); drawLine(); drawVehicles(); mapMsg(); return; }
-  if ('clearVeh' in ds){ S.mapVeh = null; drawVehicles(); mapMsg(); return; }
+  if ('clearVeh' in ds){ S.mapVeh = null; drawVehicles(); mapMsg(); if (!S.mapLine) leaveLinePin(); return; }
   if (t.id==='followBtn'){ tapFollow(); return; }
   if (t.id==='locOn'){ startWatch(true); return; }
   if (t.id==='compassBtn'){ tapCompass(); return; }
