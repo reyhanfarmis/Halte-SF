@@ -331,6 +331,17 @@ body.mapmode main#view{position:fixed;left:0;right:0;top:0;bottom:var(--tabh,cal
 .grab .row span{font-size:12px;color:var(--muted)}
 .nsb{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 16px 20px;display:flex;flex-direction:column;gap:12px}
 .nsheet[data-pos="peek"] .nsb{overflow:hidden}
+.cpin{position:absolute;left:50%;width:30px;height:42px;margin-left:-15px;z-index:2;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.3))}
+.cpin svg{width:30px;height:42px;display:block}
+.pincard{position:absolute;left:10px;right:10px;z-index:3;max-width:540px;margin:0 auto}
+.cpin[hidden],.pincard[hidden]{display:none!important}
+.pc{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border-radius:14px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.22)}
+.pc-h{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pc-h b{font-weight:600;font-size:15px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-h small,.pc-d small{font-size:12px;color:var(--muted)}
+.pc-d{display:flex;gap:10px;align-items:center;flex:none}
+.pc-r{display:flex;flex-direction:column;align-items:center;gap:3px}
+.pc-r b{font:600 14px/1 var(--f-num);color:var(--accent)}
 .me2{position:relative;display:block;width:20px;height:20px}
 .me2 .halo{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(46,110,214,.16)}
 .me2 .cone{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;transition:transform .2s linear}
@@ -568,7 +579,7 @@ async function loadHills(){
   const c = store.get('hills2', null);
   if (c && Date.now() - c.t < 7*86400000){ S.hills = c.hills; }
   else { try { const h = await api('hills', {}, 60000); S.hills = h; store.set('hills2', {t:Date.now(), hills:h}); } catch {} }
-  if (S.tab==='spots') renderDyn(); if (S.tab==='near') drawHills();
+  if (S.tab==='spots'){ renderDyn(); drawHills(); }
 }
 S.hillRoutes = store.get('hillroutes', {});
 let hillQueue = Promise.resolve();
@@ -578,7 +589,7 @@ function loadHillRoute(h){ // measured street route + elevation profile, one hil
   hillQueue = hillQueue.then(async () => {
     try { S.hillRoutes[h.id] = await api('hillroute', {a:`${h.a.lat},${h.a.lon}`, b:`${h.b.lat},${h.b.lon}`}, 60000); store.set('hillroutes', S.hillRoutes); }
     catch { S.hillRoutes[h.id] = null; }
-    if (S.tab==='spots') renderDyn(); if (S.tab==='near') drawHills(); if (S.sheet?.type==='hill' && S.sheet.id===h.id) openSheet(S.sheet);
+    if (S.tab==='spots'){ renderDyn(); drawHills(); } if (S.sheet?.type==='hill' && S.sheet.id===h.id) openSheet(S.sheet);
   });
 }
 /* ---------- ride-time estimate: gravity, rolling friction, air drag, wind, walking ---------- */
@@ -720,7 +731,7 @@ function rememberMine(id){ S.mine.add(id); store.set('mypublic', [...S.mine]); }
 async function loadCommunity(){
   if (S.mode==='demo') return;
   try { S.community = await api('community', {}, 15000); S.communityOk = true; } catch (e) { S.communityOk = false; }
-  if (S.tab==='spots') renderDyn(); if (S.tab==='near'){ drawSpots(); drawHills(); }
+  if (S.tab==='spots'){ renderDyn(); drawSpots(); drawHills(); }
   if (S.sheet && (S.sheet.type==='spot' || S.sheet.type==='hill')) renderSheet();
 }
 async function loadSpots(){
@@ -729,7 +740,7 @@ async function loadSpots(){
   const c = store.get('spots', null);
   if (c && Date.now() - c.t < 86400000){ S.spots = c.spots; }
   else { try { const sp = await api('spots', {}, 30000); S.spots = sp; store.set('spots', {t:Date.now(), spots:sp}); } catch {} }
-  if (S.tab==='spots') renderDyn(); if (S.tab==='near') drawSpots();
+  if (S.tab==='spots'){ renderDyn(); drawSpots(); }
 }
 const allSpots = () => [...S.community.spots.map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...S.mySpots.map(x=>({...x, mine:true, local:true})), ...S.spots];
 const spotById = id => allSpots().find(x=>x.id===id);
@@ -742,7 +753,8 @@ function kindLabel(sp){
 const walkMins = m => Math.max(1, Math.round(m*1.3/80));
 
 function nearStops(){
-  const all = S.stops.map(s => ({...s, d:dist(S.here, s)})).sort((a,b)=>a.d-b.d);
+  const ref = S.browse.near || S.here;
+  const all = S.stops.map(s => ({...s, d:dist(ref, s)})).sort((a,b)=>a.d-b.d);
   const within = all.filter(s => s.d <= S.set.range).slice(0, 40);
   return within.length ? within : all.slice(0, 6);
 }
@@ -789,7 +801,7 @@ function stopCard(s, max=4, keys=null){
   const gs = groups(S.arr[s.id]).filter(g => !keys || keys.has(g.line+'|'+g.dest)), fav = S.fav.some(f=>f.id===s.id);
   return `<article class="card">
     <div style="display:flex;align-items:center;padding-right:8px">
-      <button class="card-h" data-open-stop="${esc(s.id)}"><span class="nm">${esc(s.name)}</span>${s.d!=null?`<span class="dist">${fmtDist(s.d)}</span>`:''}</button>
+      <button class="card-h" data-open-stop="${esc(s.id)}"><span class="nm">${esc(s.name)}</span>${s.d!=null?`<span class="dist">${fmtAway(s.d, 'near')}</span>`:''}</button>
       <button class="star" data-fav="${esc(s.id)}" aria-pressed="${fav}" aria-label="${fav?'Remove from':'Add to'} favorites">${ICON.star(fav)}</button>
     </div>
     ${S.arr[s.id] === undefined ? '<div class="empty">Loading…</div>' : gs.length ? gs.slice(0,max).map(g=>depRow(s,g,false)).join('') : '<div class="empty">No arrivals in the next 90 minutes.</div>'}
@@ -798,11 +810,10 @@ function stopCard(s, max=4, keys=null){
 
 /* ================= RENDER: tab ================= */
 function renderTab(){
-  if (S.tab==='map'){ S.tab = 'near'; S.nsPos = 'peek'; }
+  if (S.tab==='map'){ S.tab = 'near'; S.pos.near = 'peek'; }
   const group = {near:'near', spots:'spots'}[S.tab] || 'more';
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab===group ? 'page' : 'false'));
-  document.body.classList.toggle('mapmode', S.tab==='near');
-  if (S.tab!=='near') stopWatch();
+  document.body.classList.toggle('mapmode', isMapTab());
   const v = $('#view');
   if (S.map){ S.map.remove(); S.map = null; S.meMarker = null; }
   const sky = SKYLINE, title = t => `${sky}<h1 class="pagetitle">${t}</h1>`;
@@ -811,12 +822,8 @@ function renderTab(){
   if (S.tab==='near'){
     v.innerHTML = `<div class="nmap" id="mapwrap"><div id="map" aria-label="Map of stops and live vehicles"></div>
         <div class="mhead"><b>HALTE · SF</b><span class="where">${esc(S.here.label==='you' ? 'Near you' : S.here.label || 'Near you')}</span><span class="updated" id="updated2"></span><span class="chip" id="srcChip2">DEMO</span></div>
-        <div class="maptop" id="maptop"></div>
-        <div class="mbtns">
-          <button class="mbtn" id="compassBtn" aria-label="Compass: turn the map to face where you're facing">${ICON.compass}</button>
-          <button class="mbtn" id="followBtn" aria-label="Follow my location">${ICON.follow}</button>
-        </div></div>
-      <section class="nsheet" id="nsheet" data-pos="${S.nsPos}" aria-label="Departures near you">
+        ${mapChrome()}</div>
+      <section class="nsheet" id="nsheet" data-pos="${S.pos[S.tab]}" aria-label="Departures near you">
         <div class="grab" id="grab" role="button" tabindex="0" aria-label="Drag up for departures, down for the map"><i></i>
           <div class="row"><b>Nearby</b><span id="nsHint"></span></div></div>
         <div class="nsb" id="nsb">${demoNote}
@@ -825,7 +832,7 @@ function renderTab(){
           <button class="iconbtn" id="locBtn" aria-label="Use my location">${ICON.loc}</button></div>
           <div class="results" id="sr"></div>
           <div id="favwrap" style="display:flex;flex-direction:column;gap:12px"></div>
-          <div class="h" id="nearH">Near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
+          <div class="h" id="nearH">${S.browse.near ? 'Near the pin' : 'Near ' + esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
           <div class="credit">Transit data: 511.org</div></div>
       </section>`;
     setupSheet(); renderKarl(); initMap();
@@ -833,20 +840,18 @@ function renderTab(){
     v.innerHTML = `${title('Skate')}<div class="terms">${TERMS_HTML}
       <label class="check"><input type="checkbox" id="termsChk"> I’ve read these terms. I understand skateboarding is dangerous and I skate at my own risk.</label>
       <button class="iconbtn" id="termsAgree" style="width:100%">I agree</button></div>`;
-  } else if (S.tab==='spots' && S.spotSeg==='hills'){
-    v.innerHTML = `${title('Bomb hills')}<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="false">Spots</button><button data-seg="hills" aria-pressed="true">Hills</button></div>
-      ${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> This is a sample hill. The installed app routes real SF hills along the streets and checks the elevation every 25 m.</div>':''}
-      <div class="searchrow"><div class="note" style="flex:1;margin:0">Routes follow the streets from start to finish and are checked for uphill parts.</div>
-      <button class="iconbtn" id="addHill">+ Add hill</button></div>
-      <div class="h">Bomb hills</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
-      <div class="credit">Elevation: USGS 3DEP · Streets © OpenStreetMap contributors</div>`;
   } else if (S.tab==='spots'){
-    v.innerHTML = `${title('Skate spots')}<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="true">Spots</button><button data-seg="hills" aria-pressed="false">Hills</button></div>
-      ${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> These are sample skateparks. The installed app loads every skatepark in SF and live Muni directions.</div>':''}
-      <div class="searchrow"><input class="search" id="spq" type="search" placeholder="Search spots" autocomplete="off" aria-label="Search spots" value="${esc(S.spotQ)}">
-      <button class="iconbtn" id="addSpot">+ Add spot</button></div>
-      <div class="h">Skate spots near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
-      <div class="credit">Skatepark locations © OpenStreetMap contributors</div>`;
+    v.innerHTML = `<div class="nmap" id="mapwrap"><div id="map" aria-label="Map of skate spots and hills"></div>
+        <div class="mhead"><b>HALTE · SF</b><span class="where">Skate</span><span class="chip" id="srcChip2">DEMO</span></div>
+        ${mapChrome()}</div>
+      <section class="nsheet" id="nsheet" data-pos="${S.pos[S.tab]}" aria-label="Skate spots and hills">
+        <div class="grab" id="grab" role="button" tabindex="0" aria-label="Drag up for the list, down for the map"><i></i>
+          <div class="row"><b>Skate</b><span id="nsHint"></span></div></div>
+        <div class="nsb" id="nsb"><div id="skTop" style="display:flex;flex-direction:column;gap:12px">${skateTop()}</div>
+          <div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
+          <div class="credit">Skateparks and streets © OpenStreetMap contributors · Elevation: USGS 3DEP</div></div>
+      </section>`;
+    setupSheet(); initMap();
   } else if (S.tab==='lines'){
     v.innerHTML = `${title('Routes')}${backMore}<div class="seg" role="group" aria-label="Type">
         ${[['all','All'],['rail','Metro'],['bus','Bus'],['cable','Cable car'],['bart','BART']].map(([k,t])=>`<button data-lf="${k}" aria-pressed="${S.lineFilter===k}">${t}</button>`).join('')}</div>
@@ -886,24 +891,29 @@ function renderDyn(){
       keys.forEach(k => seen.add(k));
       cards.push(stopCard(st, 8, new Set(keys)));
     }
+    renderPinCard();
     d.innerHTML = cards.length ? cards.join('') + `<div class="credit">${seen.size} routes within ${S.set.range>=1000?(S.set.range/1000)+' km':S.set.range+' m'} · change the range in Settings</div>`
       : loaded.length < stops.length ? stops.slice(0,6).map(s=>stopCard(s)).join('')
       : `<div class="note">No departures within ${S.set.range>=1000?(S.set.range/1000)+' km':S.set.range+' m'} in the next 90 minutes. Try a bigger range in Settings.</div>`;
   }
   else if (S.tab==='spots' && S.spotSeg==='hills'){
-    const list = allHills().map(h => ({...h, d:dist(S.here, h.start)})).sort((a,b)=>a.d-b.d);
-    list.forEach(loadHillRoute);
-    d.innerHTML = list.length ? list.map(h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${h.r ? dhBadge(h.r) : '<span class="kind" style="color:var(--muted)">Measuring route…</span>'}${h.community?` <span class="kind${h.mine?' mine':''}"><i></i>${h.mine?'Added by you':'Community hill'}</span>`:h.local?' <span class="kind mine"><i></i>Only on this phone</span>':''}</span><span class="dist">${fmtDist(h.d)}</span></button>
-      ${h.r ? `<div class="hstats"><div><b>${h.r.grade}%</b>avg grade</div><div><b>${h.r.length} m</b>long</div><div><b>${Math.round(h.r.drop)} m</b>drop</div></div>` : ''}</article>`).join('')
+    const ref = S.browse.spots || S.here;
+    const all = allHills().map(h => ({...h, d:dist(ref, h.start)})).sort((a,b)=>a.d-b.d);
+    all.forEach(loadHillRoute);
+    const shared = all.filter(h => h.community || h.local), more = all.filter(h => !h.community && !h.local);
+    const hcard = h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${h.r ? dhBadge(h.r) : '<span class="kind" style="color:var(--muted)">Measuring route…</span>'}${h.community?` <span class="kind${h.mine?' mine':''}"><i></i>${h.mine?'Added by you':'Community hill'}</span>`:h.local?' <span class="kind mine"><i></i>Only on this phone</span>':''}</span><span class="dist">${fmtAway(h.d, 'spots')}</span></button>
+      ${h.r ? `<div class="hstats"><div><b>${h.r.grade}%</b>avg grade</div><div><b>${h.r.length} m</b>long</div><div><b>${Math.round(h.r.drop)} m</b>drop</div></div>` : ''}</article>`;
+    d.innerHTML = all.length ? (shared.length ? `<div class="h">Shared by skaters · ${shared.length}</div>` + shared.map(hcard).join('') : `<div class="note">No shared hills yet. Tap <b>+ Add hill</b> to share your line.</div>`)
+        + (more.length ? `<div class="h">More SF hills</div>` + more.slice(0, 30).map(hcard).join('') : '')
       : `<div class="note">Loading SF hills… this can take a few seconds the first time.</div>`;
   }
   else if (S.tab==='spots'){
     const q = S.spotQ.trim().toLowerCase();
     const list = allSpots().filter(x => !q || (x.name+' '+(x.type||'')).toLowerCase().includes(q))
-      .map(x => ({...x, d:dist(S.here, x)})).sort((a,b)=>a.d-b.d).slice(0, 40);
+      .map(x => ({...x, d:dist(S.browse.spots || S.here, x)})).sort((a,b)=>a.d-b.d).slice(0, 40);
     d.innerHTML = list.length ? list.map(sp => {
       const ns = S.stops.length ? nearestStop(sp) : null;
-      return `<article class="card"><button class="card-h" data-open-spot="${esc(sp.id)}"><span class="nm">${esc(sp.name)}<br>${kindLabel(sp)}</span><span class="dist">${fmtDist(sp.d)}</span></button>
+      return `<article class="card"><button class="card-h" data-open-spot="${esc(sp.id)}"><span class="nm">${esc(sp.name)}<br>${kindLabel(sp)}</span><span class="dist">${fmtAway(sp.d, 'spots')}</span></button>
         ${ns?`<div class="spot-sub"><span>Closest Muni stop: ${esc(ns.name)} · ${walkMins(ns.d)} min walk</span></div>`:''}</article>`;
     }).join('') : `<div class="note">${S.spots.length||S.mySpots.length ? 'No spots match that search.' : 'Loading skate spots…'} Tap <b>+ Add spot</b> to save your own street spots.</div>`;
   }
@@ -927,6 +937,12 @@ function renderSettings(){
     <div class="seg">${[['system','System'],['light','Light'],['dark','Dark']].map(([k,t])=>`<button data-theme-set="${k}" aria-pressed="${S.set.theme===k}">${t}</button>`).join('')}</div>
     <span class="lbl">Accent color</span>
     <div class="sw">${hues.map(([h,n])=>`<button data-hue="${h}" style="--h:${h}" aria-pressed="${S.set.hue===h}" aria-label="${n}" title="${n}"></button>`).join('')}</div>
+  </div>
+  <div class="h">Location</div>
+  <div class="set">
+    <span>${S.gps ? 'On: live GPS, updating as you move.' : S.locDenied ? 'Off: Halte isn’t allowed to use your location.' : 'Waiting for GPS…'}</span>
+    <button class="iconbtn ghost" id="locOn">Turn on live location</button>
+    <span class="hint">To keep it on: iPhone → Settings → Privacy &amp; Security → Location Services → Safari Websites → <b>While Using the App</b>, and Precise Location on. Android → Chrome → Site settings → Location → Allow. Location updates while Halte is open.</span>
   </div>
   <div class="h">Nearby</div>
   <div class="set">
@@ -1024,7 +1040,7 @@ function hillFogNote(h){
 }
 
 /* ================= TRANSIT TAB: pull-up sheet ================= */
-S.nsPos = 'half';
+S.pos = {near:'half', spots:'half'}; S.browse = {near:null, spots:null};
 function sheetTops(){
   const H = $('#view').clientHeight || window.innerHeight, mh = $('.mhead');
   const full = mh ? mh.offsetTop + mh.offsetHeight + 8 : 66;
@@ -1032,32 +1048,33 @@ function sheetTops(){
 }
 function setSheetPos(pos, anim=true){
   const el = $('#nsheet'); if (!el) return;
-  const tops = sheetTops(); S.nsPos = pos;
+  const tops = sheetTops(); S.pos[S.tab] = pos;
   el.classList.toggle('anim', anim); el.style.top = tops[pos] + 'px'; el.dataset.pos = pos;
   const hint = $('#nsHint'); if (hint) hint.textContent = pos==='peek' ? 'Pull up for times' : 'Pull down for the map';
   const H = $('#view').clientHeight || window.innerHeight;
   if (S.map) S.map._ml.easeTo({padding:{top:60, bottom:Math.max(0, H - tops[pos]), left:0, right:0}, duration:anim?280:0});
+  placeOverlays(); if (anim) setTimeout(placeOverlays, 300);
 }
 function setupSheet(){
   const el = $('#nsheet'), g = $('#grab'); if (!el || !g) return;
-  setSheetPos(S.nsPos, false);
+  setSheetPos(S.pos[S.tab], false);
   let y0 = 0, top0 = 0, t0 = 0, moved = 0, dragging = false;
   g.addEventListener('pointerdown', e => { dragging = true; y0 = e.clientY; top0 = el.offsetTop; t0 = performance.now(); moved = 0; el.classList.remove('anim'); try { g.setPointerCapture(e.pointerId); } catch {} });
   g.addEventListener('pointermove', e => { if (!dragging) return; const T = sheetTops(), dy = e.clientY - y0; moved = Math.max(moved, Math.abs(dy));
-    el.style.top = Math.min(T.peek, Math.max(T.full, top0 + dy)) + 'px'; });
+    el.style.top = Math.min(T.peek, Math.max(T.full, top0 + dy)) + 'px'; placeOverlays(); });
   const end = e => { if (!dragging) return; dragging = false;
     const order = ['full','half','peek'], T = sheetTops();
-    if (moved < 6){ setSheetPos({peek:'half', half:'full', full:'peek'}[S.nsPos]); return; }
+    if (moved < 6){ setSheetPos({peek:'half', half:'full', full:'peek'}[S.pos[S.tab]]); return; }
     const v = (e.clientY - y0) / Math.max(1, performance.now() - t0), cur = el.offsetTop;
     let pos = order.reduce((a,b) => Math.abs(T[a]-cur) < Math.abs(T[b]-cur) ? a : b);
-    if (Math.abs(v) > 0.5){ const i = order.indexOf(S.nsPos), j = order.indexOf(pos); if (i === j) pos = order[Math.min(2, Math.max(0, i + (v > 0 ? 1 : -1)))]; }
+    if (Math.abs(v) > 0.5){ const i = order.indexOf(S.pos[S.tab]), j = order.indexOf(pos); if (i === j) pos = order[Math.min(2, Math.max(0, i + (v > 0 ? 1 : -1)))]; }
     setSheetPos(pos); };
   g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
-  g.addEventListener('keydown', e => { if (e.key==='Enter' || e.key===' '){ e.preventDefault(); setSheetPos({peek:'half', half:'full', full:'peek'}[S.nsPos]); } });
+  g.addEventListener('keydown', e => { if (e.key==='Enter' || e.key===' '){ e.preventDefault(); setSheetPos({peek:'half', half:'full', full:'peek'}[S.pos[S.tab]]); } });
   $('#q')?.addEventListener('focus', () => setSheetPos('full'));
 }
 function measureTabs(){ const n = $('.tabs'); if (n) document.documentElement.style.setProperty('--tabh', n.offsetHeight + 'px'); }
-window.addEventListener('resize', () => { measureTabs(); if (S.tab==='near') setSheetPos(S.nsPos, false); });
+window.addEventListener('resize', () => { measureTabs(); if (isMapTab()) setSheetPos(S.pos[S.tab], false); });
 
 /* ================= FOLLOW ME + COMPASS ================= */
 S.follow = true; S.headingUp = false; S.heading = null; S.gps = null; S.watchId = null;
@@ -1065,12 +1082,12 @@ function startWatch(asked){
   if (S.watchId != null || !navigator.geolocation) { if (!navigator.geolocation && asked) toast('Location isn’t available on this device.'); return; }
   if (asked) toast('Finding your location…');
   S.watchId = navigator.geolocation.watchPosition(onPos, () => {
-    stopWatch(); if (asked) toast('Location permission was denied or is unavailable.'); S.follow = false; updMapBtns();
+    stopWatch(); S.locDenied = true; if (asked) toast('Location is off for Halte. Turn it on in your phone’s settings (see Settings → Location).'); S.follow = false; updMapBtns();
   }, {enableHighAccuracy:true, maximumAge:5000, timeout:30000});
 }
 function stopWatch(){ if (S.watchId != null){ navigator.geolocation.clearWatch(S.watchId); S.watchId = null; } }
 function onPos(p){
-  const c = p.coords;
+  const c = p.coords; S.locDenied = false;
   S.gps = {lat:c.latitude, lon:c.longitude, acc:c.accuracy || 30, course:(c.heading != null && !isNaN(c.heading) && (c.speed || 0) > 1.5) ? c.heading : null};
   if (!S.here || S.here.label !== 'you' || dist(S.here, S.gps) > 120){
     S.here = {lat:S.gps.lat, lon:S.gps.lon, label:'you'}; store.set('here', S.here);
@@ -1107,7 +1124,7 @@ function followCenter(force){
   const now = performance.now(); if (!force && now - lastFollow < 300) return; lastFollow = now;
   const ml = S.map._ml, o = {center:[S.gps.lon, S.gps.lat], duration:force ? 600 : 400};
   if (S.headingUp && S.heading != null) o.bearing = S.heading;
-  if (force && ml.getZoom() < 15) o.zoom = 16;
+  if (force && S.tab==='near' && ml.getZoom() < 15) o.zoom = 16;
   ml.easeTo(o);
 }
 let lastHead = 0, lastHeadVal = null;
@@ -1154,16 +1171,75 @@ async function tapCompass(){
   if (S.heading == null) toast('Turn around slowly if the arrow doesn’t move.'); else followCenter(true);
 }
 function tapFollow(){
-  S.follow = true; startWatch(S.watchId == null); updMapBtns();
+  endBrowse(); S.follow = true; startWatch(S.watchId == null); updMapBtns();
   if (S.gps) followCenter(true);
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopWatch();
-  else if (S.tab==='near' && S.follow) autoWatch();
+  else startWatch(false);
 });
 async function autoWatch(){
   try { const st = await navigator.permissions?.query({name:'geolocation'}); if (st?.state === 'granted') startWatch(false); } catch {}
   updMapBtns();
+}
+
+/* ================= MAP TABS: shared chrome, browsing by dragging ================= */
+const isMapTab = () => S.tab==='near' || (S.tab==='spots' && S.termsOk);
+const PIN_SVG = `<svg viewBox="0 0 30 42" aria-hidden="true"><path d="M15 41C15 41 2 25 2 15a13 13 0 0 1 26 0c0 10-13 26-13 26z" fill="var(--accent)" stroke="#fff" stroke-width="2.5"/><circle cx="15" cy="15" r="5" fill="#fff"/></svg>`;
+function mapChrome(){
+  return `<div class="maptop" id="maptop"></div>
+    <div class="mbtns">
+      <button class="mbtn" id="compassBtn" aria-label="Compass: turn the map to face where you're facing">${ICON.compass}</button>
+      <button class="mbtn" id="followBtn" aria-label="Follow my location">${ICON.follow}</button>
+    </div>
+    <div class="cpin" id="cpin" hidden>${PIN_SVG}</div>
+    <div class="pincard" id="pincard" hidden></div>`;
+}
+function skateTop(){
+  const seg = `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="${S.spotSeg!=='hills'}">Spots</button><button data-seg="hills" aria-pressed="${S.spotSeg==='hills'}">Hills</button></div>`;
+  if (S.spotSeg==='hills') return seg + (S.mode==='demo' ? '<div class="note"><b>Demo mode.</b> This is a sample hill. The installed app shows every hill skaters have shared.</div>' : '')
+    + `<div class="searchrow"><div class="note" style="flex:1;margin:0">Tap a hill for its profile, ride time and the bus to the top.</div><button class="iconbtn" id="addHill">+ Add hill</button></div>`;
+  return seg + (S.mode==='demo' ? '<div class="note"><b>Demo mode.</b> These are sample skateparks.</div>' : '')
+    + `<div class="searchrow"><input class="search" id="spq" type="search" placeholder="Search spots" autocomplete="off" aria-label="Search spots" value="${esc(S.spotQ)}"><button class="iconbtn" id="addSpot">+ Add spot</button></div>
+      <div class="h" id="skH">${S.browse.spots ? 'Near the pin' : 'Near you'}</div>`;
+}
+function fmtAway(d, tab){
+  if (!S.browse[tab]) return fmtDist(d);
+  return (d < 1000 ? Math.round(d/10)*10 + ' m' : (d/1000).toFixed(1) + ' km') + ' from pin';
+}
+function placeOverlays(){
+  const el = $('#nsheet'), pin = $('#cpin'), card = $('#pincard'); if (!el) return;
+  const top = el.offsetTop, mh = $('.mhead'), headB = mh ? mh.offsetTop + mh.offsetHeight : 60;
+  const browsing = !!S.browse[S.tab], full = S.pos[S.tab]==='full';
+  if (pin){ pin.hidden = !browsing || full; pin.style.top = Math.round((headB + top)/2 - 42) + 'px'; }
+  if (card){ card.hidden = !browsing || full || S.tab!=='near' || !card.innerHTML; card.style.bottom = ($('#view').clientHeight - top + 10) + 'px'; }
+}
+function renderPinCard(){
+  const card = $('#pincard'); if (!card) return;
+  if (S.tab!=='near' || !S.browse.near){ card.innerHTML = ''; placeOverlays(); return; }
+  const st = nearStops()[0]; if (!st){ card.innerHTML = ''; placeOverlays(); return; }
+  const gs = groups(S.arr[st.id]).slice(0, 3);
+  card.innerHTML = `<button class="pc" data-open-stop="${esc(st.id)}"><span class="pc-h"><b>${esc(st.name)}</b><small>Closest stop · ${fmtAway(st.d, 'near')}</small></span>
+    <span class="pc-d">${S.arr[st.id]===undefined ? '<small>Loading times…</small>' : gs.length ? gs.map(g => { const m = etaMin(g.items[0].eta); return `<span class="pc-r">${badge(g.line, true)}<b>${m<=0?'Now':m+'′'}</b></span>`; }).join('') : '<small>No departures soon</small>'}</span></button>`;
+  placeOverlays();
+}
+let browseT = null;
+function onBrowse(){
+  if (!S.map) return;
+  const c = S.map._ml.getCenter(); S.browse[S.tab] = {lat:c.lat, lon:c.lng};
+  placeOverlays();
+  clearTimeout(browseT);
+  browseT = setTimeout(() => {
+    if (S.tab==='near'){ const nh = $('#nearH'); if (nh) nh.textContent = 'Near the pin'; renderDyn(); refreshArrivals(); }
+    else { const h = $('#skH'); if (h) h.textContent = 'Near the pin'; renderDyn(); }
+  }, 350);
+}
+function endBrowse(){
+  if (!S.browse[S.tab]) return;
+  S.browse[S.tab] = null;
+  const nh = $('#nearH'); if (nh) nh.textContent = 'Near you';
+  const h = $('#skH'); if (h) h.textContent = 'Near you';
+  renderDyn(); if (S.tab==='near') refreshArrivals(); placeOverlays();
 }
 
 /* ================= MAP ENGINE (MapLibre, with a tiny Leaflet-style wrapper) ================= */
@@ -1321,20 +1397,20 @@ function mapMsg(){
     parts.push(`<div class="mapline">${badge(L_.id,true)}<span>${esc(L_.name)}</span><button data-clear-line aria-label="Hide route">${ICON.close}</button></div>`); }
   if ($('#mapwrap')?.classList.contains('notiles'))
     parts.push(`<div class="mapmsg">Street map can’t load in this preview. Stop and vehicle positions are still accurate, and the full street map appears in the installed version.</div>`);
-  else if (S.map && S.map.getZoom() < 13 && !S.mapLine)
+  else if (S.tab==='near' && S.map && S.map.getZoom() < 13 && !S.mapLine)
     parts.push(`<div class="mapmsg">Zoom in to see vehicles and stops.</div>`);
-  else if (S.mode==='live' && S.map && S.map.getZoom() < 15 && !v)
+  else if (S.tab==='near' && S.mode==='live' && S.map && S.map.getZoom() < 15 && !v)
     parts.push(`<div class="mapmsg">Zoom in to see stops.</div>`);
   top.innerHTML = parts.join('');
 }
 async function initMap(){
   if (!window.maplibregl){ $('#map').innerHTML = '<div class="note" style="margin:12px">The map couldn’t load. Check your connection and open this tab again.</div>'; return; }
   await getMapKey();
-  if (S.tab !== 'near' || !$('#map') || S.map) return;
+  if (!isMapTab() || !$('#map') || S.map) return;
   const focus = S.mapFocus && stopById(S.mapFocus);
   const v0 = selVeh();
   const m = L.map('map', {zoomControl:true, attributionControl:true})
-    .setView(v0?.lat!=null ? [v0.lat, v0.lon] : focus ? [focus.lat, focus.lon] : [S.here.lat, S.here.lon], v0 || focus ? 16 : 16);
+    .setView(v0?.lat!=null ? [v0.lat, v0.lon] : focus ? [focus.lat, focus.lon] : S.gps ? [S.gps.lat, S.gps.lon] : [S.here.lat, S.here.lon], v0 || focus ? 16 : S.tab==='spots' ? 14 : 16);
   m.attributionControl.setPrefix(false);
   S.map = m;
   $('#mapwrap')?.classList.toggle('dark-tiles', isDark() && !S.mapKey); // darken plain OSM tiles; MapTiler has a real dark style
@@ -1344,10 +1420,13 @@ async function initMap(){
   S.spotLayer = L.layerGroup().addTo(m);
   S.vehLayer = L.layerGroup().addTo(m);
   updateMe();
-  m._ml.on('dragstart', e => { if (e.originalEvent && S.follow){ S.follow = false; updMapBtns(); } });
+  m._ml.on('dragstart', e => { if (e.originalEvent){ S.userMoved = true; if (S.follow){ S.follow = false; updMapBtns(); } } });
+  m._ml.on('moveend', () => { if (S.userMoved){ S.userMoved = false; if (!S.follow) onBrowse(); } });
   m._ml.on('rotate', updMapBtns);
-  setSheetPos(S.nsPos, false);
-  if (S.follow && !v0 && !focus && !S.mapLine && !S.mapHill && !S.mapSpot && !S.hillPick?.picking && !S.pickSpot) autoWatch(); else { S.follow = false; updMapBtns(); }
+  setSheetPos(S.pos[S.tab], false);
+  if (S.browse[S.tab] || v0 || focus || S.mapLine || S.mapHill || S.mapSpot || S.hillPick?.picking || S.pickSpot) S.follow = false;
+  startWatch(false); updMapBtns(); renderPinCard();
+  if (S.browse[S.tab]) m._ml.jumpTo({center:[S.browse[S.tab].lon, S.browse[S.tab].lat]});
   if (S.gps && S.follow) followCenter(true);
   m.on('moveend', () => { drawStops(); drawSpots(); drawHills(); drawVehicles(); });
   m.on('click', ev => {
@@ -1359,12 +1438,13 @@ async function initMap(){
     if (S.pickSpot){ S.pickSpot = false; Object.assign(S.spotDraft, {lat:+ev.latlng.lat.toFixed(6), lon:+ev.latlng.lng.toFixed(6)}); openSheet({type:'addspot'}); mapMsg(); return; }
     if (S.mapVeh){ S.mapVeh = null; drawVehicles(); mapMsg(); }
   });
-  drawLine(); drawStops(); drawSpots(); drawHills(); drawVehicles(); loadVehicles();
+  drawLine(); drawStops(); drawSpots(); drawHills(); drawVehicles(); if (S.tab==='near') loadVehicles();
   if (S.mapHill){ const h = hillById(S.mapHill); if (h) m.fitBounds(L.latLngBounds(h.r?.path || [[h.a.lat,h.a.lon],[h.b.lat,h.b.lon]]), {padding:[60,60], maxZoom:18}); }
   if (S.mapSpot){ const sp = spotById(S.mapSpot); if (sp) m.setView([sp.lat, sp.lon], 16); }
 }
 function drawStops(){
   if (!S.map) return;
+  if (S.tab!=='near'){ S.stopLayer?.clearLayers(); mapMsg(); return; }
   S.stopLayer.clearLayers(); mapMsg();
   if (S.mode==='live' && S.map.getZoom() < 15) return;
   const b = S.map.getBounds().pad(0.1), c = S.map.getCenter();
@@ -1392,6 +1472,7 @@ function drawPickedPins(){
 }
 function drawHills(){
   if (!S.map || !S.hillLayer) return;
+  if (S.tab!=='spots'){ S.hillLayer.clearLayers(); return; }
   if (!S.termsOk){ S.hillLayer.clearLayers(); return; }
   if (S.hillPick?.picking) return; // keep the picked point visible
   S.hillLayer.clearLayers();
@@ -1410,6 +1491,7 @@ function drawHills(){
 }
 function drawSpots(){
   if (!S.map || !S.spotLayer) return;
+  if (S.tab!=='spots'){ S.spotLayer.clearLayers(); return; }
   S.spotLayer.clearLayers();
   if (!S.termsOk) return;
   if (S.map.getZoom() < 12) return;
@@ -1425,6 +1507,7 @@ function drawSpots(){
 }
 function drawVehicles(){
   if (!S.map || !S.vehLayer) return;
+  if (S.tab!=='near'){ S.vehLayer.clearLayers(); return; }
   S.vehLayer.clearLayers();
   let list = S.vehicles.filter(v => v.lat != null);
   if (S.mapLine) list = list.filter(v => v.line===S.mapLine.id);
@@ -1462,7 +1545,7 @@ async function showOnMap(opts){
   S.mapSpot = opts.spot || null; S.mapHill = opts.hill || null;
   S.mapFocus = opts.stop || null; S.mapLine = opts.line || null; S.mapVeh = opts.veh || null;
   S.centerVeh = !!opts.veh; S.lineFitted = false;
-  closeSheet(); S.tab = 'near'; S.nsPos = 'peek'; renderTab(); window.scrollTo(0,0);
+  closeSheet(); S.tab = (opts.spot || opts.hill) ? 'spots' : 'near'; S.pos[S.tab] = 'peek'; S.browse[S.tab] = null; renderTab(); window.scrollTo(0,0);
   if (S.mapLine && !S.lineData[S.mapLine.id]){ await loadLine(S.mapLine.id); drawLine(); }
 }
 
@@ -1648,7 +1731,7 @@ document.addEventListener('click', async e => {
   const t = e.target.closest('button, .scrim, [data-track]'); if (!t) return;
   const ds = t.dataset;
   if (ds.tab==='spots' || ds.tab==='near') loadCommunity();
-  if (ds.tab){ if (ds.tab==='near' && S.tab==='near'){ S.mapFocus = null; S.mapLine = null; S.mapSpot = null; S.mapHill = null; S.pickSpot = false; if (S.hillPick) S.hillPick.picking = false; S.follow = true; }
+  if (ds.tab){ if (ds.tab===S.tab && isMapTab()){ S.browse[S.tab] = null; S.mapFocus = null; S.mapLine = null; S.mapSpot = null; S.mapHill = null; S.pickSpot = false; if (S.hillPick) S.hillPick.picking = false; S.follow = true; }
     S.tab = ds.tab; renderTab(); window.scrollTo(0,0); if (!['settings','more','lines','alerts'].includes(ds.tab)) refreshArrivals(); return; }
   if (ds.mapStop){ showOnMap({stop:ds.mapStop}); return; }
   if (ds.mapLine){ showOnMap({line:{id:ds.mapLine, dir:ds.mapDir}}); return; }
@@ -1657,10 +1740,11 @@ document.addEventListener('click', async e => {
   if (ds.vehRoute){ S.mapLine = {id:ds.vehRoute, dir:ds.vehDir}; S.lineFitted = true; if (!S.lineData[ds.vehRoute]) await loadLine(ds.vehRoute); drawLine(); drawVehicles(); mapMsg(); return; }
   if ('clearVeh' in ds){ S.mapVeh = null; drawVehicles(); mapMsg(); return; }
   if (t.id==='followBtn'){ tapFollow(); return; }
+  if (t.id==='locOn'){ startWatch(true); return; }
   if (t.id==='compassBtn'){ tapCompass(); return; }
   if (t.id==='scrim' || 'close' in ds){ closeSheet(); return; }
   if (ds.openStop){ openSheet({type:'stop', id:ds.openStop}); return; }
-  if (ds.seg){ S.spotSeg = ds.seg; renderTab(); return; }
+  if (ds.seg){ S.spotSeg = ds.seg; const k = $('#skTop'); if (k) k.innerHTML = skateTop(); renderDyn(); return; }
   if (t.id==='termsAgree'){ if (!$('#termsChk').checked){ toast('Tick the box to confirm you’ve read the terms.'); return; }
     S.termsOk = true; store.set('terms', TERMS_VERSION); store.set('termsAt', new Date().toISOString()); renderTab(); return; }
   if (t.id==='openTerms'){ openSheet({type:'terms'}); return; }
@@ -1685,7 +1769,7 @@ document.addEventListener('click', async e => {
   if ('donePins' in ds){ if (S.hillPick?.pts.length >= 2){ S.hillPick.picking = false; mapMsg(); openSheet({type:'addhill'}); } return; }
   if ('cancelHill' in ds){ S.hillPick = null; S.hillLayer?.clearLayers(); mapMsg(); drawHills(); return; }
   if (t.id==='hlPick'){ S.hillPick.name = $('#hlName').value; S.hillPick.picking = true; S.hillPick.pts = [];
-    closeSheet(); S.mapLine = S.mapVeh = S.mapFocus = S.mapSpot = S.mapHill = null; S.tab = 'near'; S.nsPos = 'peek'; renderTab(); window.scrollTo(0,0); S.hillLayer?.clearLayers(); mapMsg(); return; }
+    closeSheet(); S.mapLine = S.mapVeh = S.mapFocus = S.mapSpot = S.mapHill = null; S.tab = 'spots'; S.pos.spots = 'peek'; renderTab(); window.scrollTo(0,0); S.hillLayer?.clearLayers(); mapMsg(); return; }
   if (t.id==='hlSave'){
     const hp = S.hillPick; hp.name = $('#hlName').value.trim();
     if (!hp.name){ toast('Give the hill a name.'); return; }
@@ -1726,7 +1810,7 @@ document.addEventListener('click', async e => {
   if (t.id==='addSpot'){ S.spotDraft = null; openSheet({type:'addspot'}); return; }
   if (t.id==='spHere' || t.id==='spPick' || t.id==='spSave'){
     const dr = S.spotDraft; dr.name = $('#spName').value; dr.type = $('#spType').value; dr.note = $('#spNote').value;
-    if (t.id==='spPick'){ S.pickSpot = true; closeSheet(); S.mapLine = null; S.mapVeh = null; S.mapFocus = null; S.mapSpot = null; S.tab = 'near'; S.nsPos = 'peek'; renderTab(); window.scrollTo(0,0); return; }
+    if (t.id==='spPick'){ S.pickSpot = true; closeSheet(); S.mapLine = null; S.mapVeh = null; S.mapFocus = null; S.mapSpot = null; S.tab = 'spots'; S.pos.spots = 'peek'; renderTab(); window.scrollTo(0,0); return; }
     if (t.id==='spHere'){
       if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
       navigator.geolocation.getCurrentPosition(p => { dr.lat = +p.coords.latitude.toFixed(6); dr.lon = +p.coords.longitude.toFixed(6); renderSheet(); toast('Location set to where you are.'); },
@@ -1799,7 +1883,7 @@ document.addEventListener('keydown', e => { if (e.key==='Escape' && S.sheet) clo
 
 /* ================= START ================= */
 async function boot(){
-  applyTheme(); measureTabs(); renderTab();
+  applyTheme(); measureTabs(); renderTab(); startWatch(false);
   try { const p = await api('ping', {}, 4000); if (p.ok) S.mode = 'live'; } catch {}
   try { await loadBase(); } catch { S.mode = 'demo'; await loadBase(); toast('The data server isn’t ready, so sample data is shown.'); }
   renderTab(); refreshArrivals(); loadFog();
