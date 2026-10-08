@@ -1421,7 +1421,7 @@ async function initMap(){
   S.vehLayer = L.layerGroup().addTo(m);
   updateMe();
   m._ml.on('dragstart', e => { if (e.originalEvent){ S.userMoved = true; if (S.follow){ S.follow = false; updMapBtns(); } } });
-  m._ml.on('moveend', () => { if (S.userMoved){ S.userMoved = false; if (!S.follow) onBrowse(); } });
+  m._ml.on('moveend', () => { if (S.userMoved){ S.userMoved = false; if (!S.follow && S.tab==='near') onBrowse(); } });
   m._ml.on('rotate', updMapBtns);
   setSheetPos(S.pos[S.tab], false);
   if (S.browse[S.tab] || v0 || focus || S.mapLine || S.mapHill || S.mapSpot || S.hillPick?.picking || S.pickSpot) S.follow = false;
