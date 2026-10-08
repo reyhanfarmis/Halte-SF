@@ -118,7 +118,16 @@ function indexArrivals(json) {
     if (a.vehicle) {
       const k = a.line + "|" + a.vehicle;
       const cur = byLine[k];
-      if (!cur || new Date(eta) < new Date(cur.eta)) byLine[k] = { line: a.line, dir: a.dir, vehicle: a.vehicle, nextStop: stop, eta };
+      if (!cur || new Date(eta) < new Date(cur.eta)) {
+        // GPS position the vehicle reported (SIRI VehicleLocation), plus heading
+        const lat = +ci(j, "VehicleLocation", "Latitude"), lon = +ci(j, "VehicleLocation", "Longitude");
+        const bearing = ci(j, "Bearing");
+        byLine[k] = {
+          line: a.line, dir: a.dir, dest: a.dest, vehicle: a.vehicle, nextStop: stop, eta, occ: a.occ,
+          ...(lat && lon && isFinite(lat) && isFinite(lon) ? { lat, lon } : {}),
+          ...(bearing != null && bearing !== "" && isFinite(+bearing) ? { bearing: +bearing } : {}),
+        };
+      }
     }
   }
   for (const k in byStop) byStop[k].sort((x, y) => new Date(x.eta) - new Date(y.eta)).splice(12);
@@ -193,6 +202,12 @@ module.exports = async function handler(req, res) {
           get511("StopMonitoring", { agency: AGENCY }, TTL.arrivals, indexArrivals),
         ]);
         return send(200, { directions: dirs, vehicles: idx.vehicles.filter((v) => v.line === line) }, 30);
+      }
+      case "vehicles": {
+        // every Muni vehicle with a GPS position, from the same cached feed (no extra 511 calls)
+        const idx = await get511("StopMonitoring", { agency: AGENCY }, TTL.arrivals, indexArrivals);
+        const vehicles = idx.vehicles.filter((v) => v.lat != null);
+        return send(200, { updated: idx.updated, vehicles }, 30);
       }
       case "alerts":
         return send(200, await get511("servicealerts", { agency: AGENCY }, TTL.alerts, slimAlerts), 300);
