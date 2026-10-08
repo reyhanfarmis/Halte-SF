@@ -80,6 +80,7 @@ main{padding-inline:16px;display:flex;flex-direction:column;gap:14px}
 .dep{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--rule);width:100%;text-align:left}
 .badge{--lc:#3A4A57;min-width:34px;height:34px;padding:0 6px;border-radius:8px;background:var(--lc);color:#fff;display:grid;place-items:center;font:700 19px/1 var(--f-display);letter-spacing:.01em}
 .badge.rail{border-radius:50%;width:34px;padding:0}
+.badge.bart{border-radius:6px;font-family:var(--f-body);font-size:15px}
 .badge.cable{border-radius:4px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.22)}
 .badge.sm{min-width:26px;height:26px;font-size:15px}
 .badge.sm.rail{width:26px}
@@ -203,6 +204,7 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 .maploc{position:absolute;right:10px;bottom:24px;z-index:1001;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .bus{position:relative;display:grid;place-items:center;min-width:30px;height:22px;padding:0 5px;border-radius:7px;background:var(--lc);color:#fff;font:700 13px/1 var(--f-display);letter-spacing:.02em;border:2px solid var(--surface);box-shadow:0 1px 5px rgba(0,0,0,.45);white-space:nowrap}
 .bus.rail{border-radius:11px}
+.bus.bart{border-radius:5px}
 .bus.cable{border-radius:3px}
 .bus.sel{transform:scale(1.3);box-shadow:0 0 0 4px color-mix(in oklab,var(--accent) 45%,transparent),0 2px 8px rgba(0,0,0,.45)}
 .vb{position:absolute;inset:-9px;pointer-events:none}
@@ -218,9 +220,14 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 .hstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px 12px}
 .hstats div{background:var(--surface-2);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--muted)}
 .hstats b{display:block;font:700 22px/1.1 var(--f-display);color:var(--fg);font-variant-numeric:tabular-nums}
-.warns{margin:0;padding:12px 14px;list-style:none;display:flex;flex-direction:column;gap:8px;background:color-mix(in oklab,var(--bad) 9%,var(--surface));border-radius:var(--r);border-left:4px solid var(--bad)}
-.warns li{font-size:14px;padding-left:2px}
-.hilltop{display:block;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:15px solid var(--lc);filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
+.dh{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;background:color-mix(in oklab,var(--live) 16%,transparent);color:var(--live)}
+.dh.up{background:color-mix(in oklab,var(--warn) 18%,transparent);color:var(--warn)}
+.profile{background:var(--surface);border-radius:var(--r);padding:12px 14px 8px}
+.profile svg{width:100%;height:auto;display:block}
+.profile .cap{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hend{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font:700 12px/1 var(--f-body);color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.hend.s{background:#14874D}.hend.f{background:#13202A}
+.route-steps{font-size:13.5px;color:var(--muted);padding:0 14px 12px}
 .terms{background:var(--surface);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;font-size:14px}
 .terms h3{margin:6px 0 0;font-size:15px}
 .terms p{margin:0;color:var(--fg)}
@@ -262,7 +269,7 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 
 <div class="app">
   <header class="top">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><b>Halte</b><small>SF Muni</small></div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span><b>Halte</b><small>Muni · BART</small></div>
     <span class="updated" id="updated"></span>
     <span class="chip" id="srcChip">DEMO</span>
   </header>
@@ -375,10 +382,12 @@ const TERMS_HTML = `
 <h3>9. General</h3>
 <p>These terms are governed by the laws of California. If any part is unenforceable, the rest still applies. Terms may be updated; you’ll be asked to accept a new version. Version ${'2026-10-07'}.</p>`;
 const DEMO_HILLS = [
-  {id:'dh1', name:'Sample hill (Hyde Street → Leavenworth Street)', street:{name:'Filbert Street'}, top:{lat:37.80150,lon:-122.41840,elev:85,cross:'Hyde Street'}, bottom:{lat:37.80130,lon:-122.41670,elev:40,control:'stop',cross:'Leavenworth Street'}, length:151, drop:45, grade:29.8, level:'Extreme', warnings:['Grade this steep is beyond what most riders can control or stop on.','Stop sign at the bottom (Leavenworth Street). You must be able to stop.']},
-  {id:'dh2', name:'Sample hill (Douglass Street → Diamond Street)', street:{name:'Clipper Street'}, top:{lat:37.74940,lon:-122.43870,elev:120,cross:'Douglass Street'}, bottom:{lat:37.74980,lon:-122.43520,elev:104,control:'stop',cross:'Diamond Street'}, length:310, drop:16, grade:5.2, level:'Mellow', warnings:['Stop sign at the bottom (Diamond Street). You must be able to stop.']},
+  {id:'dh1', street:'Sample hill', name:'Sample hill: Hyde St → Leavenworth St', a:{lat:37.80150,lon:-122.41840,cross:'Hyde St'}, b:{lat:37.80130,lon:-122.41670,cross:'Leavenworth St'},
+   route:{start:{lat:37.80150,lon:-122.41840,elev:85}, finish:{lat:37.80130,lon:-122.41670,elev:40}, swapped:false, path:[[37.8015,-122.4184],[37.8014,-122.4176],[37.8013,-122.4167]],
+     streets:['Filbert Street'], length:151, drop:45, grade:29.8, steepest:33.1, climb:0, climbs:[], downhillAll:true, elevSource:'sample data',
+     profile:[{d:0,e:85},{d:25,e:77.6},{d:50,e:70},{d:75,e:62.3},{d:100,e:54.5},{d:125,e:47},{d:151,e:40}]}},
 ];
-const LEVEL_COLOR = {Mellow:'#14874D', Advanced:'#B58400', Expert:'#D2551B', Extreme:'#BF3328'};
+const BART_HEX = {yellow:'#C9A400', red:'#D7262B', green:'#3A9A43', blue:'#1C82C5', orange:'#E5871A', grey:'#7F8A92', gray:'#7F8A92', beige:'#A08F6A', purple:'#7B4FA0'};
 const SPOT_TYPES = ['Ledge','Stairs','Rail','Gap','Bank','Manual pad','Park','Other'];
 const COLORS = {J:'#B8600B',K:'#2B78B0',L:'#7B3FA0',M:'#2E8653',N:'#1E4D9A',T:'#BE1E5C',F:'#8A6A2C',PM:'#7A4A1C',PH:'#7A4A1C',C:'#7A4A1C'};
 const PALETTE = ['#2B78B0','#2E8653','#7B3FA0','#B8600B','#BE1E5C','#1E4D9A','#006D77','#8A6A2C'];
@@ -395,7 +404,7 @@ const S = {
   fav: store.get('fav', []),
   spots: [], mySpots: store.get('myspots', []), hills: [], myHills: store.get('myhills', []), spotSeg: 'spots', hillPick: null, termsOk: store.get('terms', '') === TERMS_VERSION, plans: {}, spotQ: '', pickSpot: false, spotDraft: null,
   rem: store.get('rem', []),
-  set: Object.assign({theme:'system', hue:228, lead:3}, store.get('settings', {})),
+  set: Object.assign({theme:'system', hue:228, lead:3, range:1000}, store.get('settings', {})),
   sheet:null, lineFilter:'all', lineData:{},
   map:null, mapFocus:null, mapLine:null, mapVeh:null, vehicles:[], vehUpdated:null,
 };
@@ -413,9 +422,10 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; cle
 
 function lineInfo(id){
   const L = S.lines.find(l => l.id === id || l.code === id);
+  if (!L && String(id).startsWith('BA:')){ const raw = String(id).slice(3), c = (raw.match(/yellow|red|green|blue|orange|gr[ae]y|beige|purple/i)||[''])[0].toLowerCase(); return {id, code:c?c[0].toUpperCase():raw.slice(0,2), name:'BART '+raw, mode:'bart', color:c}; }
   return L || {id, code:id, name:'', mode:/^[A-Z]$/.test(id)?'rail':'bus'};
 }
-function lineColor(L){ if (COLORS[L.code]) return COLORS[L.code]; if (/R$/.test(L.code)) return '#B3261E'; if (L.mode==='rail') return PALETTE[hash(L.code)%PALETTE.length]; return L.mode==='cable' ? '#7A4A1C' : '#3E4E5B'; }
+function lineColor(L){ if (L.mode==='bart') return BART_HEX[L.color] || '#2C6FB7'; if (COLORS[L.code]) return COLORS[L.code]; if (/R$/.test(L.code)) return '#B3261E'; if (L.mode==='rail') return PALETTE[hash(L.code)%PALETTE.length]; return L.mode==='cable' ? '#7A4A1C' : '#3E4E5B'; }
 function badge(id, sm){ const L=lineInfo(id); return `<span class="badge ${L.mode}${sm?' sm':''}" style="--lc:${lineColor(L)}" aria-label="Route ${esc(L.code)}">${esc(L.code)}</span>`; }
 function headway(L){ return L.mode==='cable' ? 12 : /R$/.test(L.code) ? 7 : L.mode==='rail' ? 9 : 11; }
 
@@ -484,14 +494,43 @@ async function loadBase(){
 
 async function loadHills(){
   if (S.mode === 'demo'){ S.hills = DEMO_HILLS; return; }
-  const c = store.get('hills', null);
-  if (c && Date.now() - c.t < 3*86400000){ S.hills = c.hills; }
-  else { try { const h = await api('hills', {}, 60000); S.hills = h; store.set('hills', {t:Date.now(), hills:h}); } catch {} }
+  const c = store.get('hills2', null);
+  if (c && Date.now() - c.t < 7*86400000){ S.hills = c.hills; }
+  else { try { const h = await api('hills', {}, 60000); S.hills = h; store.set('hills2', {t:Date.now(), hills:h}); } catch {} }
   if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawHills();
 }
-const allHills = () => [...S.myHills.map(x=>({...x, mine:true})), ...S.hills];
+S.hillRoutes = store.get('hillroutes', {});
+let hillQueue = Promise.resolve();
+function loadHillRoute(h){ // measured street route + elevation profile, one hill at a time
+  if (S.mode==='demo' || h.mine || S.hillRoutes[h.id] || h._loading) return;
+  h._loading = true;
+  hillQueue = hillQueue.then(async () => {
+    try { S.hillRoutes[h.id] = await api('hillroute', {a:`${h.a.lat},${h.a.lon}`, b:`${h.b.lat},${h.b.lon}`}, 60000); store.set('hillroutes', S.hillRoutes); }
+    catch { S.hillRoutes[h.id] = null; }
+    if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawHills(); if (S.sheet?.type==='hill' && S.sheet.id===h.id) openSheet(S.sheet);
+  });
+}
+function hillView(h){
+  const r = h.route || S.hillRoutes[h.id] || null;
+  const startX = r ? (r.swapped ? h.b?.cross : h.a?.cross) : h.a?.cross, finishX = r ? (r.swapped ? h.a?.cross : h.b?.cross) : h.b?.cross;
+  const name = h.mine ? h.name : `${h.street}: ${startX || '?'} → ${finishX || '?'}`;
+  const start = r?.start || h.a;
+  return {...h, name, r, start, startX, finishX};
+}
+const allHills = () => [...S.myHills.map(x=>({...x, mine:true})), ...S.hills].map(hillView);
 const hillById = id => allHills().find(x=>x.id===id);
-const lvl = h => `<span class="lvl" style="--lc:${LEVEL_COLOR[h.level]||'#888'}">${esc(h.level)}</span>`;
+function dhBadge(r){ return !r ? '' : r.downhillAll ? `<span class="dh">↘ Downhill the whole way</span>` : `<span class="dh up">↗ Climbs ${Math.round(r.climb)} m on the way</span>`; }
+function profileSvg(r){
+  const P = r.profile, W = 320, H = 110, pad = 6;
+  const maxE = Math.max(...P.map(p=>p.e)), minE = Math.min(...P.map(p=>p.e)), span = Math.max(1, maxE-minE), len = P[P.length-1].d || 1;
+  const x = d => pad + (d/len)*(W-2*pad), y = e => pad + (1-(e-minE)/span)*(H-2*pad);
+  const line = P.map((p,k)=>`${k?'L':'M'}${x(p.d).toFixed(1)},${y(p.e).toFixed(1)}`).join('');
+  const climbs = (r.climbs||[]).map(c=>`<rect x="${x(c.from).toFixed(1)}" y="${pad}" width="${Math.max(2,x(c.to)-x(c.from)).toFixed(1)}" height="${H-2*pad}" fill="var(--warn)" opacity=".18"/>`).join('');
+  return `<div class="profile"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Elevation profile: ${Math.round(r.drop)} metres down over ${r.length} metres">
+    ${climbs}<path d="${line} L${x(len).toFixed(1)},${H-pad} L${pad},${H-pad} Z" fill="var(--accent)" opacity=".14"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+    <circle cx="${x(0)}" cy="${y(P[0].e)}" r="4.5" fill="#14874D"/><circle cx="${x(len)}" cy="${y(P[P.length-1].e)}" r="4.5" fill="var(--fg)"/></svg>
+    <div class="cap"><span>Start ${Math.round(P[0].e)} m</span><span>${r.length} m along the street</span><span>Finish ${Math.round(P[P.length-1].e)} m</span></div></div>`;
+}
 async function loadSpots(){
   loadHills();
   if (S.mode === 'demo'){ S.spots = DEMO_SPOTS; return; }
@@ -506,7 +545,11 @@ function nearestStop(p){ let b=null; for (const s of S.stops){ const d = dist(p,
 function kindLabel(sp){ return sp.mine ? `<span class="kind mine"><i></i>Your spot${sp.type?' · '+esc(sp.type):''}</span>` : `<span class="kind"><i></i>Skatepark</span>`; }
 const walkMins = m => Math.max(1, Math.round(m*1.3/80));
 
-function nearStops(n=6){ return S.stops.map(s => ({...s, d:dist(S.here, s)})).sort((a,b)=>a.d-b.d).slice(0,n); }
+function nearStops(){
+  const all = S.stops.map(s => ({...s, d:dist(S.here, s)})).sort((a,b)=>a.d-b.d);
+  const within = all.filter(s => s.d <= S.set.range).slice(0, 40);
+  return within.length ? within : all.slice(0, 6);
+}
 function watchedIds(){
   const ids = new Set(nearStops().map(s=>s.id)); S.fav.forEach(f=>ids.add(f.id));
   if (S.sheet?.type==='stop') ids.add(S.sheet.id); return [...ids];
@@ -546,8 +589,8 @@ function depRow(stop, g, withBell){
     ${withBell?`<button class="bell" aria-pressed="${on}" aria-label="Remind me" data-bell="${esc(key)}" data-name="${esc(stop.name)}" data-line="${esc(L.code)}" data-dest="${esc(g.dest)}" data-eta="${esc(a.eta)}">${ICON.bell}</button>`:''}
   </div>`;
 }
-function stopCard(s, max=4){
-  const gs = groups(S.arr[s.id]), fav = S.fav.some(f=>f.id===s.id);
+function stopCard(s, max=4, keys=null){
+  const gs = groups(S.arr[s.id]).filter(g => !keys || keys.has(g.line+'|'+g.dest)), fav = S.fav.some(f=>f.id===s.id);
   return `<article class="card">
     <div style="display:flex;align-items:center;padding-right:8px">
       <button class="card-h" data-open-stop="${esc(s.id)}"><span class="nm">${esc(s.name)}</span>${s.d!=null?`<span class="dist">${fmtDist(s.d)}</span>`:''}</button>
@@ -582,8 +625,8 @@ function renderTab(){
       <button class="iconbtn" id="termsAgree" style="width:100%">I agree</button></div>`;
   } else if (S.tab==='spots' && S.spotSeg==='hills'){
     v.innerHTML = `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="false">Spots</button><button data-seg="hills" aria-pressed="true">Hills</button></div>
-      ${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> These are sample hills. The installed app measures real SF hills with USGS elevation data.</div>':''}
-      <div class="searchrow"><div class="note" style="flex:1;margin:0">No hill is safe. Grades are measured; check every hill on foot first.</div>
+      ${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> This is a sample hill. The installed app routes real SF hills along the streets and checks the elevation every 25 m.</div>':''}
+      <div class="searchrow"><div class="note" style="flex:1;margin:0">Routes follow the streets from start to finish and are checked for uphill parts.</div>
       <button class="iconbtn" id="addHill">+ Add hill</button></div>
       <div class="h">Bomb hills</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
       <div class="credit">Elevation: USGS 3DEP · Streets © OpenStreetMap contributors</div>`;
@@ -596,7 +639,7 @@ function renderTab(){
       <div class="credit">Skatepark locations © OpenStreetMap contributors</div>`;
   } else if (S.tab==='lines'){
     v.innerHTML = `<div class="seg" role="group" aria-label="Type">
-        ${[['all','All'],['rail','Metro'],['bus','Bus'],['cable','Cable car']].map(([k,t])=>`<button data-lf="${k}" aria-pressed="${S.lineFilter===k}">${t}</button>`).join('')}</div>
+        ${[['all','All'],['rail','Metro'],['bus','Bus'],['cable','Cable car'],['bart','BART']].map(([k,t])=>`<button data-lf="${k}" aria-pressed="${S.lineFilter===k}">${t}</button>`).join('')}</div>
       <input class="search" id="lq" type="search" placeholder="Search routes, e.g. 38 or Geary" autocomplete="off" aria-label="Search routes">
       <div id="dyn"></div>`;
   } else if (S.tab==='alerts'){
@@ -616,13 +659,25 @@ function renderDyn(){
     const fw = $('#favwrap');
     if (fw) fw.innerHTML = S.fav.length ? `<div class="h">Favorites</div>` + S.fav.map(f=>stopCard({...(S.stops.find(s=>s.id===f.id) || f), d:undefined}, 6)).join('') : '';
     const favIds = new Set(S.fav.map(f=>f.id));
-    d.innerHTML = nearStops().filter(s=>!favIds.has(s.id)).map(s=>stopCard(s)).join('');
+    // every route once, at its closest stop within range
+    const seen = new Set(), cards = [], stops = nearStops().filter(s=>!favIds.has(s.id));
+    const loaded = stops.filter(s => S.arr[s.id] !== undefined);
+    for (const st of loaded){
+      const keys = groups(S.arr[st.id]).map(g => g.line+'|'+g.dest).filter(k => !seen.has(k));
+      if (!keys.length) continue;
+      keys.forEach(k => seen.add(k));
+      cards.push(stopCard(st, 8, new Set(keys)));
+    }
+    d.innerHTML = cards.length ? cards.join('') + `<div class="credit">${seen.size} routes within ${S.set.range>=1000?(S.set.range/1000)+' km':S.set.range+' m'} · change the range in Settings</div>`
+      : loaded.length < stops.length ? stops.slice(0,6).map(s=>stopCard(s)).join('')
+      : `<div class="note">No departures within ${S.set.range>=1000?(S.set.range/1000)+' km':S.set.range+' m'} in the next 90 minutes. Try a bigger range in Settings.</div>`;
   }
   else if (S.tab==='spots' && S.spotSeg==='hills'){
-    const list = allHills().map(h => ({...h, d:dist(S.here, h.top)})).sort((a,b)=>a.d-b.d);
-    d.innerHTML = list.length ? list.map(h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${lvl(h)}${h.mine?' <span class="kind mine"><i></i>Your hill</span>':''}</span><span class="dist">${fmtDist(h.d)}</span></button>
-      <div class="hstats"><div><b>${h.grade}%</b>grade</div><div><b>${h.length} m</b>long</div><div><b>${Math.round(h.drop)} m</b>drop</div></div></article>`).join('')
-      : `<div class="note">Measuring SF hills… this can take a few seconds the first time.</div>`;
+    const list = allHills().map(h => ({...h, d:dist(S.here, h.start)})).sort((a,b)=>a.d-b.d);
+    list.forEach(loadHillRoute);
+    d.innerHTML = list.length ? list.map(h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${h.r ? dhBadge(h.r) : '<span class="kind" style="color:var(--muted)">Measuring route…</span>'}${h.mine?' <span class="kind mine"><i></i>Your hill</span>':''}</span><span class="dist">${fmtDist(h.d)}</span></button>
+      ${h.r ? `<div class="hstats"><div><b>${h.r.grade}%</b>avg grade</div><div><b>${h.r.length} m</b>long</div><div><b>${Math.round(h.r.drop)} m</b>drop</div></div>` : ''}</article>`).join('')
+      : `<div class="note">Loading SF hills… this can take a few seconds the first time.</div>`;
   }
   else if (S.tab==='spots'){
     const q = S.spotQ.trim().toLowerCase();
@@ -637,8 +692,8 @@ function renderDyn(){
   else if (S.tab==='lines'){
     const q = ($('#lq')?.value || '').trim().toLowerCase();
     const ls = S.lines.filter(l => (S.lineFilter==='all' || l.mode===S.lineFilter) && (!q || (l.code+' '+l.name).toLowerCase().includes(q)))
-      .sort((a,b)=>(a.mode===b.mode?0:a.mode==='rail'?-1:b.mode==='rail'?1:a.mode==='cable'?-1:1) || a.code.localeCompare(b.code,'en',{numeric:true}));
-    d.innerHTML = ls.length ? `<div class="linelist">${ls.map(l=>`<button class="lrow" data-open-line="${esc(l.id)}">${badge(l.id)}<span class="t">${esc(l.name)}</span><span class="m">${{rail:'Metro',bus:'Bus',cable:'Cable car'}[l.mode]}</span></button>`).join('')}</div>`
+      .sort((a,b)=>(a.mode===b.mode?0:a.mode==='bart'?-1:b.mode==='bart'?1:a.mode==='rail'?-1:b.mode==='rail'?1:a.mode==='cable'?-1:1) || a.code.localeCompare(b.code,'en',{numeric:true}));
+    d.innerHTML = ls.length ? `<div class="linelist">${ls.map(l=>`<button class="lrow" data-open-line="${esc(l.id)}">${badge(l.id)}<span class="t">${esc(l.name)}</span><span class="m">${{rail:'Metro',bus:'Bus',cable:'Cable car',bart:'BART'}[l.mode]}</span></button>`).join('')}</div>`
       : '<div class="note">No matching routes.</div>';
   } else if (S.tab==='alerts'){
     d.innerHTML = S.alerts.length ? S.alerts.map(a=>`<article class="alert"><div class="ls">${a.lines.map(l=>badge(l,true)).join('')}</div><h3>${esc(a.title)}</h3>${a.body?`<p>${esc(a.body)}</p>`:''}</article>`).join('')
@@ -655,6 +710,12 @@ function renderSettings(){
     <span class="lbl">Accent color</span>
     <div class="sw">${hues.map(([h,n])=>`<button data-hue="${h}" style="--h:${h}" aria-pressed="${S.set.hue===h}" aria-label="${n}" title="${n}"></button>`).join('')}</div>
   </div>
+  <div class="h">Nearby</div>
+  <div class="set">
+    <label for="range">Show departures within</label>
+    <select id="range">${[[500,'500 m (about 4 blocks)'],[1000,'1 km (about 8 blocks)'],[1500,'1.5 km (about 12 blocks)']].map(([v,t])=>`<option value="${v}"${S.set.range===v?' selected':''}>${t}</option>`).join('')}</select>
+    <span class="hint">Nearby shows every route once, at its closest stop.</span>
+  </div>
   <div class="h">Reminders</div>
   <div class="set">
     <label for="lead">Remind me before the vehicle arrives</label>
@@ -665,7 +726,7 @@ function renderSettings(){
   <div class="set feat">
     <span>Unlimited favorites</span><span>On</span>
     <span>Skate spots with Muni directions</span><span>On</span>
-    <span>Bomb hills with measured grades</span><span>On</span>
+    <span>Hills with street routes and elevation profiles</span><span>On</span>
     <span>Live vehicle positions along routes</span><span>On</span>
     <span>Departure reminders</span><span>On</span>
     <span>Crowding levels</span><span>On</span>
@@ -718,7 +779,7 @@ async function loadVehicles(){
 function mapMsg(){
   const top = $('#maptop'); if (!top) return;
   const parts = [];
-  if (S.hillPick?.picking) parts.push(`<div class="mapmsg"><b>Tap the ${S.hillPick.a?'other end':'first end'} of the hill.</b> <button class="vc-btn" data-cancel-hill style="margin-left:6px">Cancel</button></div>`);
+  if (S.hillPick?.picking) parts.push(`<div class="mapmsg"><b>Tap the ${S.hillPick.a?'finish (bottom)':'start (top)'} of the hill.</b> <button class="vc-btn" data-cancel-hill style="margin-left:6px">Cancel</button></div>`);
   if (S.pickSpot) parts.push(`<div class="mapmsg"><b>Tap the map where the spot is.</b> <button class="vc-btn" data-cancel-pick style="margin-left:6px">Cancel</button></div>`);
   const v = selVeh();
   if (v){
@@ -761,14 +822,14 @@ function initMap(){
   m.on('click', ev => {
     if (S.hillPick && S.hillPick.picking){
       const pt = {lat:+ev.latlng.lat.toFixed(6), lon:+ev.latlng.lng.toFixed(6)};
-      if (!S.hillPick.a){ S.hillPick.a = pt; L.circleMarker([pt.lat, pt.lon], {radius:7, color:'#BF3328', weight:3, fillOpacity:.6}).addTo(S.hillLayer); mapMsg(); return; }
+      if (!S.hillPick.a){ S.hillPick.a = pt; L.marker([pt.lat, pt.lon], {icon:L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11], html:'<span class="hend s">S</span>'}), interactive:false}).addTo(S.hillLayer); mapMsg(); return; }
       S.hillPick.b = pt; S.hillPick.picking = false; mapMsg(); openSheet({type:'addhill'}); return;
     }
     if (S.pickSpot){ S.pickSpot = false; Object.assign(S.spotDraft, {lat:+ev.latlng.lat.toFixed(6), lon:+ev.latlng.lng.toFixed(6)}); openSheet({type:'addspot'}); mapMsg(); return; }
     if (S.mapVeh){ S.mapVeh = null; drawVehicles(); mapMsg(); }
   });
   drawLine(); drawStops(); drawSpots(); drawHills(); drawVehicles(); loadVehicles();
-  if (S.mapHill){ const h = hillById(S.mapHill); if (h) m.fitBounds(L.latLngBounds([[h.top.lat,h.top.lon],[h.bottom.lat,h.bottom.lon]]), {padding:[60,60], maxZoom:18}); }
+  if (S.mapHill){ const h = hillById(S.mapHill); if (h) m.fitBounds(L.latLngBounds(h.r?.path || [[h.a.lat,h.a.lon],[h.b.lat,h.b.lon]]), {padding:[60,60], maxZoom:18}); }
   if (S.mapSpot){ const sp = spotById(S.mapSpot); if (sp) m.setView([sp.lat, sp.lon], 16); }
 }
 function drawStops(){
@@ -794,12 +855,15 @@ function drawHills(){
   S.hillLayer.clearLayers();
   if (S.map.getZoom() < 13 && !S.mapHill) return;
   for (const h of allHills()){
-    const c = LEVEL_COLOR[h.level] || '#888', foc = h.id===S.mapHill;
-    L.polyline([[h.top.lat,h.top.lon],[h.bottom.lat,h.bottom.lon]], {color:c, weight:foc?9:6, opacity:.9, lineCap:'round'})
-      .on('click', ev => { L.DomEvent.stopPropagation(ev); openSheet({type:'hill', id:h.id}); }).addTo(S.hillLayer);
-    L.marker([h.top.lat, h.top.lon], {icon:L.divIcon({className:'', iconSize:[18,15], iconAnchor:[9,13],
-      html:`<span class="hilltop" style="--lc:${c}"></span>${foc?`<span class="plabel">Top · ${h.grade}%</span>`:''}`}), title:`${h.name}: top`, zIndexOffset:1400})
-      .on('click', ev => { L.DomEvent.stopPropagation(ev); openSheet({type:'hill', id:h.id}); }).addTo(S.hillLayer);
+    const r = h.r; if (!r && !h.a) continue;
+    const foc = h.id===S.mapHill, c = r && !r.downhillAll ? '#B26A00' : '#5B3FD9';
+    const path = r?.path || [[h.a.lat,h.a.lon],[h.b.lat,h.b.lon]];
+    const open = ev => { L.DomEvent.stopPropagation(ev); openSheet({type:'hill', id:h.id}); };
+    L.polyline(path, {color:c, weight:foc?8:6, opacity:r?.9:.4, dashArray:r?null:'6 8', lineCap:'round', lineJoin:'round'}).on('click', open).addTo(S.hillLayer);
+    const end = r?.finish || h.b, st = r?.start || h.a;
+    L.marker([end.lat, end.lon], {icon:L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11], html:'<span class="hend f">F</span>'}), title:`${h.name}: finish`, zIndexOffset:1300}).on('click', open).addTo(S.hillLayer);
+    L.marker([st.lat, st.lon], {icon:L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11],
+      html:`<span class="hend s">S</span>${foc && r?`<span class="plabel">Start · ${r.grade}% avg</span>`:''}`}), title:`${h.name}: start`, zIndexOffset:1400}).on('click', open).addTo(S.hillLayer);
   }
 }
 function drawSpots(){
@@ -865,7 +929,7 @@ function openSheet(s){ S.sheet = s; $('#scrim').hidden = false; $('#sheet').hidd
   if (s.type==='stop' && S.arr[s.id]===undefined) refreshArrivals();
   if (s.type==='line') loadLine(s.id);
   if (s.type==='spot'){ const sp = spotById(s.id); if (sp) loadPlan(sp); }
-  if (s.type==='hill'){ const h = hillById(s.id); if (h) loadPlan({id:'hill:'+h.id, lat:h.top.lat, lon:h.top.lon}); } }
+  if (s.type==='hill'){ const h = hillById(s.id); if (h){ loadHillRoute(h); if (!S.plans['hill:'+h.id]) loadPlan({id:'hill:'+h.id, lat:h.start.lat, lon:h.start.lon}); } } }
 function closeSheet(){ S.sheet = null; $('#scrim').hidden = true; $('#sheet').hidden = true; }
 
 async function loadLine(id){
@@ -920,42 +984,44 @@ function renderSheet(){
           ${sp.mine?`<button class="iconbtn ghost danger" data-del-spot="${esc(sp.id)}">Delete</button>`:''}
         </div>
         ${sp.note?`<div class="note">${esc(sp.note)}</div>`:''}
-        <div class="h">Get there by Muni</div>
+        <div class="h">Get there by Muni or BART</div>
         ${trips}
         ${plan && !plan.demo && !plan.error ? `<div class="credit">From ${esc(S.here.label==='you'?'your location':S.here.label)} · one-seat rides only · updated ${hhmm(plan.updated)}</div>` : ''}
       </div>`;
   } else if (s.type==='hill'){
     const h = hillById(s.id); if (!h){ closeSheet(); return; }
-    const key = 'hill:'+h.id, plan = S.plans[key];
-    const target = {id:key, name:h.name, lat:h.top.lat, lon:h.top.lon};
+    const r = h.r, key = 'hill:'+h.id, plan = S.plans[key];
     let trips;
-    if (!plan) trips = '<div class="note">Finding Muni options to the top…</div>';
+    if (!plan) trips = '<div class="note">Finding transit options to the start…</div>';
     else if (plan.demo) trips = '<div class="note">Live trip options appear in the installed app.</div>';
     else if (plan.error) trips = '<div class="note">Couldn’t load trip options. Try again in a moment.</div>';
-    else trips = (plan.walkOnly && plan.walkOnly <= 15 ? `<div class="note">The top is about a <b>${plan.walkOnly} min walk</b> away.</div>` : '')
-      + (plan.options.length ? plan.options.map(o => tripCard(o).replace('Walk '+o.alight.walk+' min to the spot', 'Walk '+o.alight.walk+' min to the top'+(h.top.cross?' ('+esc(h.top.cross)+')':''))).join('')
-        : '<div class="note">No direct Muni ride to the top in the next 90 minutes. For trips with a transfer, use Google Maps.</div>');
-    el.innerHTML = `<div class="sheet-h"><h2>${esc(h.name)}<div class="meta">${lvl(h)} · top is ${fmtDist(dist(S.here, h.top))}</div></h2>
+    else trips = (plan.walkOnly && plan.walkOnly <= 15 ? `<div class="note">The start is about a <b>${plan.walkOnly} min walk</b> away.</div>` : '')
+      + (plan.options.length ? plan.options.map(o => tripCard(o).replace('Walk '+o.alight.walk+' min to the spot', 'Walk '+o.alight.walk+' min to the start'+(h.startX?' ('+esc(h.startX)+')':''))).join('')
+        : '<div class="note">No one-seat ride to the start in the next 90 minutes. For trips with a transfer, use Google Maps.</div>');
+    const body = !r ? (S.hillRoutes[h.id]===null ? '<div class="note">Couldn’t measure this route right now. Try again later.</div>' : '<div class="note">Measuring the street route and elevation…</div>')
+      : `<div class="card" style="padding-top:12px"><div class="hstats"><div><b>${r.grade}%</b>avg grade</div><div><b>${r.steepest}%</b>steepest</div><div><b>${Math.round(r.drop)} m</b>drop</div></div>
+          <div class="route-steps">${r.length} m along ${esc((r.streets||[]).join(' → ') || 'the street')}. ${r.downhillAll ? 'Every part of this route goes down or stays level.' : `This route climbs ${Math.round(r.climb)} m in ${r.climbs.length} place${r.climbs.length>1?'s':''} (shaded below). It was the most downhill street route found.`}${r.swapped && h.mine ? ' Start and finish were swapped so the route runs downhill.' : ''}</div></div>
+        ${profileSvg(r)}`;
+    el.innerHTML = `<div class="sheet-h"><h2>${esc(h.name)}<div class="meta">${r ? dhBadge(r)+' · ' : ''}start is ${fmtDist(dist(S.here, h.start))}</div></h2>
         <button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
-        <div class="card" style="padding-top:12px"><div class="hstats"><div><b>${h.grade}%</b>avg grade</div><div><b>${h.length} m</b>long</div><div><b>${Math.round(h.drop)} m</b>drop</div></div></div>
-        <ul class="warns">${(h.warnings||[]).map(w=>`<li>⚠ ${esc(w)}</li>`).join('')}<li>⚠ Check the hill on foot, wear a helmet, and never ride into traffic you can’t stop for.</li></ul>
+        ${body}
         <div class="sheet-actions">
-          <button class="iconbtn ghost" data-map-hill="${esc(h.id)}">${ICON.loc} Show on map</button>
-          <a class="iconbtn ghost" href="${gmapsLink(h.top)}" target="_blank" rel="noopener" style="text-decoration:none">Google Maps to top</a>
+          <button class="iconbtn ghost" data-map-hill="${esc(h.id)}">${ICON.loc} Show route on map</button>
+          <a class="iconbtn ghost" href="${gmapsLink(h.start)}" target="_blank" rel="noopener" style="text-decoration:none">Google Maps to start</a>
           ${h.mine?`<button class="iconbtn ghost danger" data-del-hill="${esc(h.id)}">Delete</button>`:''}
         </div>
-        <div class="h">Get to the top by Muni</div>
+        <div class="h">Get to the start</div>
         ${trips}
-        <div class="credit">Grade measured from ${esc(h.elevSource || 'elevation data')} between the two ends; the steepest part is steeper than the average. Not a safety rating.</div>
+        <div class="credit">Route follows the streets (© OpenStreetMap). Elevation every ~25 m from ${esc(r?.elevSource || 'USGS')}. Skate at your own risk.</div>
       </div>`;
   } else if (s.type==='addhill'){
     const hp = S.hillPick || {};
     el.innerHTML = `<div class="sheet-h"><h2>Add a hill<div class="meta">Saved on this phone</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
         <div class="field"><label for="hlName">Name</label><input id="hlName" value="${esc(hp.name||'')}" placeholder="e.g. Clipper St from Douglass" maxlength="60"></div>
-        <div class="note">${hp.a && hp.b ? '✓ Both ends set. Saving measures the grade with real elevation data.' : 'Next you’ll tap the two ends of the hill on the map. Order doesn’t matter; the app works out which end is the top.'}</div>
-        <button class="iconbtn" id="${hp.a && hp.b ? 'hlSave' : 'hlPick'}" style="width:100%">${hp.a && hp.b ? 'Measure and save' : 'Pick the two ends on the map'}</button>
+        <div class="note">${hp.a && hp.b ? '✓ Start and finish set. Saving finds the street route between them and checks the elevation along it.' : 'Next you’ll tap the <b>start</b> (top) and then the <b>finish</b> (bottom) on the map. The route follows the streets between them.'}</div>
+        <button class="iconbtn" id="${hp.a && hp.b ? 'hlSave' : 'hlPick'}" style="width:100%">${hp.a && hp.b ? 'Find route and save' : 'Pick start and finish on the map'}</button>
       </div>`;
   } else if (s.type==='terms'){
     el.innerHTML = `<div class="sheet-h"><h2>Terms & safety<div class="meta">${S.termsOk?'Accepted':'Not accepted yet'} · version ${TERMS_VERSION}</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
@@ -998,7 +1064,7 @@ function renderSheet(){
             ${here.length?`<span class="veh">${ICON.veh}${here.map(m=>m?m+' min':'arriving').join(' · ')}</span>`:''}</div>`; }).join('')}</div>
         <div class="note">Vehicle markers show the stop each vehicle is heading to and when it gets there. ${vs.length} vehicles active in this direction.</div>`;
     }
-    el.innerHTML = `<div class="sheet-h">${badge(L.id)}<h2>${esc(L.name || 'Route '+L.code)}<div class="meta">${{rail:'Muni Metro',bus:'Muni bus',cable:'Cable car'}[L.mode]}</div></h2>
+    el.innerHTML = `<div class="sheet-h">${badge(L.id)}<h2>${esc(L.name || 'Route '+L.code)}<div class="meta">${{rail:'Muni Metro',bus:'Muni bus',cable:'Cable car',bart:'BART train'}[L.mode]}</div></h2>
       <button class="close" data-close aria-label="Close">${ICON.close}</button></div><div class="sheet-b">${body}</div>`;
   }
   const b = el.querySelector('.sheet-b'); if (b) b.scrollTop = keep;
@@ -1055,13 +1121,14 @@ document.addEventListener('click', async e => {
     const hp = S.hillPick; hp.name = $('#hlName').value.trim();
     if (!hp.name){ toast('Give the hill a name.'); return; }
     if (S.mode==='demo'){ toast('Measuring hills needs the installed app.'); return; }
-    t.textContent = 'Measuring…';
+    t.textContent = 'Finding route…';
     try {
-      const h = await api('hillcalc', {a:`${hp.a.lat},${hp.a.lon}`, b:`${hp.b.lat},${hp.b.lon}`}, 30000);
-      const hill = {...h, id:'myh-'+Date.now(), name:hp.name};
+      const r = await api('hillroute', {a:`${hp.a.lat},${hp.a.lon}`, b:`${hp.b.lat},${hp.b.lon}`}, 60000);
+      const hill = {id:'myh-'+Date.now(), name:hp.name, street:'', a:{...hp.a}, b:{...hp.b}, route:r};
       S.myHills.unshift(hill); store.set('myhills', S.myHills); S.hillPick = null;
-      toast(`Saved: ${hill.grade}% average grade.`); openSheet({type:'hill', id:hill.id}); drawHills(); renderDyn();
-    } catch { t.textContent = 'Measure and save'; toast('Couldn’t measure that hill. Check that the two ends are 20 m to 3 km apart.'); }
+      toast(r.downhillAll ? `Saved: downhill the whole way, ${r.grade}% average.` : `Saved. Heads up: the route climbs ${Math.round(r.climb)} m.`);
+      openSheet({type:'hill', id:hill.id}); drawHills(); renderDyn();
+    } catch { t.textContent = 'Find route and save'; toast('Couldn’t find a street route. Check that start and finish are 20 m to 3 km apart.'); }
     return;
   }
   if (ds.openSpot){ openSheet({type:'spot', id:ds.openSpot}); return; }
@@ -1108,7 +1175,7 @@ document.addEventListener('click', async e => {
   }
   if (ds.themeSet){ S.set.theme = ds.themeSet; saveSet(); renderTab(); return; }
   if (ds.hue){ S.set.hue = +ds.hue; saveSet(); renderTab(); return; }
-  if (t.id==='reset'){ if (t.dataset.armed){ ['fav','rem','base','here','settings','myspots','myhills','spots','hills','terms','termsAt'].forEach(k=>{try{localStorage.removeItem('halte.'+k)}catch{}}); location.reload(); }
+  if (t.id==='reset'){ if (t.dataset.armed){ ['fav','rem','base','here','settings','myspots','myhills','spots','hills','hills2','hillroutes','terms','termsAt'].forEach(k=>{try{localStorage.removeItem('halte.'+k)}catch{}}); location.reload(); }
     else { t.dataset.armed = '1'; t.textContent = 'Tap again to clear everything'; } return; }
   if (t.id==='locBtn'){
     if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
@@ -1134,7 +1201,7 @@ document.addEventListener('input', e => {
   if (S.spotDraft && e.target.id==='spName') S.spotDraft.name = e.target.value;
   if (S.spotDraft && e.target.id==='spNote') S.spotDraft.note = e.target.value;
 });
-document.addEventListener('change', e => { if (S.spotDraft && e.target.id==='spType') S.spotDraft.type = e.target.value; if (e.target.id==='lead'){ S.set.lead = +e.target.value; saveSet(); toast(`Reminders: ${S.set.lead} min before arrival.`); } });
+document.addEventListener('change', e => { if (e.target.id==='range'){ S.set.range = +e.target.value; saveSet(); toast('Nearby range updated.'); refreshArrivals(); } if (S.spotDraft && e.target.id==='spType') S.spotDraft.type = e.target.value; if (e.target.id==='lead'){ S.set.lead = +e.target.value; saveSet(); toast(`Reminders: ${S.set.lead} min before arrival.`); } });
 document.addEventListener('keydown', e => { if (e.key==='Escape' && S.sheet) closeSheet(); });
 
 /* ================= START ================= */

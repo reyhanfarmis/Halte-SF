@@ -1,15 +1,15 @@
-# Halte SF — a Muni transit app
+# Halte SF — Muni + BART transit app
 
 A web app you can install on your phone's home screen (PWA). Features:
 
-- **Nearby**: the closest stops to you, real-time arrivals per route, distance and walking time
+- **Nearby**: every Muni and BART route within your range (500 m, 1 km or 1.5 km), each shown once at its closest stop, with real-time arrivals and walking time
 - **Map**: every stop around you (tap a dot to see arrivals), "Show on map" from any stop, and route lines with live vehicles
 - **Favorites**: save as many stops as you like (shown at the top of Nearby)
-- **Spots**: SF skateparks from OpenStreetMap plus street spots you add yourself, each with live one-seat Muni directions from where you are
-- **Hills**: bomb hills with grades measured from USGS elevation data, a difficulty level, warnings about what's at the bottom, live Muni directions to the top, and your own hills (tap both ends on the map)
+- **Spots**: SF skateparks from OpenStreetMap plus street spots you add yourself, each with live one-seat Muni or BART directions from where you are
+- **Hills**: a start and finish for each hill, a route that follows the streets between them, an elevation profile sampled every ~25 m (USGS lidar) that checks the route really goes downhill, live directions to the start, and your own hills (tap start, then finish)
 - **Terms & safety**: a skate-at-your-own-risk agreement users must accept before Spots and Hills
-- **Routes**: every Muni route (Metro, bus, cable car), stops in each direction, and where each vehicle is heading
-- **Alerts**: Muni service alerts
+- **Routes**: every Muni route (Metro, bus, cable car) and BART line, stops in each direction, and where each vehicle is heading
+- **Alerts**: Muni and BART service alerts
 - **Reminders**: tap the bell on a departure and get alerted a few minutes before it arrives
 - **Crowding levels** (when Muni reports them)
 - Light/dark themes and 5 accent colors, no ads
@@ -43,6 +43,8 @@ On iPhone, reminder notifications only work when the app is opened from its home
 
 ## About the 511 quota
 
+Muni arrivals refresh every 100 seconds and BART every 180 seconds to stay inside the default limit.
+
 A default 511 key is limited to roughly 60 requests per hour. The proxy in `api/511.js` fetches **all** Muni predictions in one call every 75 seconds and shares them with every user, so usage stays around 50 requests/hour no matter how many people use the app. For faster updates or heavy use, ask for a higher limit at transitdata@511.org.
 
 ## Making changes
@@ -57,6 +59,7 @@ Street maps use OpenStreetMap's free standard tiles, which are fine for personal
 ## Data sources for Spots and Hills
 
 - Skateparks and street names: © OpenStreetMap contributors (ODbL), loaded from the Overpass API and cached for a day.
+- Street routes for hills: FOSSGIS OSRM foot routing (routing.openstreetmap.de), © OpenStreetMap contributors.
 - Elevation: USGS 3DEP Elevation Point Query Service (falls back to Open-Meteo).
 - Spots and hills users add are stored only on their own phone.
 - The terms in the app are a starting template, not legal advice. Have a lawyer review them if the app goes public or makes money.
