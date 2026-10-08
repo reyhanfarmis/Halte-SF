@@ -368,6 +368,22 @@ button.pc-r{padding:2px}
 .knob-b{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .knob-b .iconbtn{height:42px;font-size:14px}
 .spotpin.knobbed{background:#8A949B;opacity:.85}
+.lbbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--navy);color:#F4F1EA;border-radius:var(--r);padding:12px 14px;text-align:left}
+.lbbtn span{font:700 20px/1 var(--f-display);text-transform:uppercase;letter-spacing:.02em}
+.lbbtn small{font-size:12.5px;color:#B9C6CF}
+.lb{list-style:none;margin:0;padding:0;background:var(--surface);border-radius:var(--r);overflow:hidden}
+.lb li{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--rule)}
+.lb li:last-child{border-bottom:0}
+.lb li.me{background:var(--accent-soft)}
+.lb-r{font:700 22px/1 var(--f-display);color:var(--muted);text-align:center}
+.lb li:nth-child(1) .lb-r{color:var(--gold)}
+.lb li:nth-child(2) .lb-r{color:#9AA6AE}
+.lb li:nth-child(3) .lb-r{color:#B87333}
+.lb-n{display:flex;flex-direction:column;min-width:0}
+.lb-n b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-n small{font-size:12px;color:var(--muted)}
+.lb-p{font:600 18px/1 var(--f-num);color:var(--accent);text-align:right}
+.lb-p small{display:block;font:500 11px/1.3 var(--f-body);color:var(--muted)}
 .me2{position:relative;display:block;width:20px;height:20px}
 .me2 .halo{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(46,110,214,.16)}
 .me2 .cone{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;transition:transform .2s linear}
@@ -470,7 +486,7 @@ const DEMO_SPOTS = [
   {id:'ds3', name:'Balboa Skatepark', lat:37.72470, lon:-122.44400, kind:'park'},
   {id:'ds4', name:'Crocker Amazon Skatepark', lat:37.71100, lon:-122.43720, kind:'park'},
 ];
-const TERMS_VERSION = '2026-10-08';
+const TERMS_VERSION = '2026-10-08b';
 const TERMS_HTML = `
 <p class="big">Know your limits. Skate at your own risk.</p>
 <p>Halte SF shows skate spots, hills and Muni directions for information only. Read these terms before using the Spots and Hills features.</p>
@@ -490,10 +506,12 @@ const TERMS_HTML = `
 <p>If you are under 18, you may use the Spots and Hills features only with a parent or guardian’s permission, and your parent or guardian accepts these terms on your behalf.</p>
 <h3>8. Spots and hills you share are public</h3>
 <p>Spots and hills you add are visible to everyone who uses the app. Only add places that are public. Don’t add private property, someone’s home, school grounds, or places where skating is prohibited, and don’t include personal information in names or notes. You give the developer permission to show, store and remove what you share. Anything can be reported; items reported by several people are hidden, and the developer can remove anything at any time. Shared spots and hills are not checked or endorsed by the developer.</p>
+<h3>8a. Accounts and the leaderboard</h3>
+<p>You can browse everything without an account. To add spots, skateparks or hills you sign in with Google. Halte stores only an anonymous ID and the username you pick, never your email or Google name. Your username appears on what you add and on the leaderboard, so don’t use your real full name. Points are just for fun and can be reset or removed at any time.</p>
 <h3>9. Transit data</h3>
 <p>Transit times are estimates from 511.org. Halte SF is not affiliated with SFMTA, Muni or BART.</p>
 <h3>10. General</h3>
-<p>These terms are governed by the laws of California. If any part is unenforceable, the rest still applies. Terms may be updated; you’ll be asked to accept a new version. Version ${'2026-10-08'}.</p>`;
+<p>These terms are governed by the laws of California. If any part is unenforceable, the rest still applies. Terms may be updated; you’ll be asked to accept a new version. Version ${'2026-10-08b'}.</p>`;
 const DEMO_HILLS = [
   {id:'dh1', street:'Sample hill', name:'Sample hill: Hyde St → Leavenworth St', a:{lat:37.80150,lon:-122.41840,cross:'Hyde St'}, b:{lat:37.80130,lon:-122.41670,cross:'Leavenworth St'},
    route:{start:{lat:37.80150,lon:-122.41840,elev:85}, finish:{lat:37.80130,lon:-122.41670,elev:40}, swapped:false, path:[[37.8015,-122.4184],[37.8014,-122.4176],[37.8013,-122.4167]],
@@ -719,7 +737,7 @@ function hillView(h){
   const start = r?.start || h.a;
   return {...h, name, r, start, startX, finishX};
 }
-const allHills = () => [...arr(S.community.hills).map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...arr(S.myHills).map(x=>({...x, mine:true, local:true})), ...arr(S.hills)].filter(x => x && (x.a || x.route)).map(hillView).filter(h => h.start && isFinite(h.start.lat));
+const allHills = () => [...arr(S.community.hills).map(x=>({...x, community:true, mine:S.mine.has(x.id) || (!!S.me?.uid && x.uid===S.me.uid)})), ...arr(S.myHills).map(x=>({...x, mine:true, local:true})), ...arr(S.hills)].filter(x => x && (x.a || x.route)).map(hillView).filter(h => h.start && isFinite(h.start.lat));
 const hillById = id => allHills().find(x=>x.id===id);
 function dhBadge(r){
   if (!r) return '';
@@ -753,7 +771,8 @@ if (!S.ownerToken){ const a = new Uint8Array(24); crypto.getRandomValues(a); S.o
 async function post(ep, body, ms=60000){
   const ctl = new AbortController(), to = setTimeout(()=>ctl.abort(), ms);
   try {
-    const r = await fetch(new URL('api/511?ep='+ep, location.href), {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body), signal:ctl.signal});
+    const r = await fetch(new URL('api/511?ep='+ep, location.href), {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(S.session ? {...body, session:S.session} : body), signal:ctl.signal});
+    if (r.status === 401 && S.session && ep !== 'me'){ const j0 = await r.clone().json().catch(()=>({})); if (/sign in/i.test(j0.error || '')) { S.me = null; store.set('me', null); } }
     const j = await r.json().catch(()=>({}));
     if (!r.ok) throw Object.assign(new Error(j.error || 'HTTP '+r.status), {status:r.status});
     return j;
@@ -775,7 +794,7 @@ async function loadSpots(){
   if (S.tab==='spots'){ renderDyn(); drawSpots(); }
 }
 const arr = x => Array.isArray(x) ? x : [];
-const allSpots = () => [...arr(S.community.spots).map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...arr(S.mySpots).map(x=>({...x, mine:true, local:true})), ...arr(S.spots)].filter(x => x && isFinite(x.lat) && isFinite(x.lon));
+const allSpots = () => [...arr(S.community.spots).map(x=>({...x, community:true, mine:S.mine.has(x.id) || (!!S.me?.uid && x.uid===S.me.uid)})), ...arr(S.mySpots).map(x=>({...x, mine:true, local:true})), ...arr(S.spots)].filter(x => x && isFinite(x.lat) && isFinite(x.lon));
 const spotById = id => allSpots().find(x=>x.id===id);
 function nearestStop(p){ let b=null; for (const s of S.stops){ const d = dist(p, s); if (!b || d < b.d) b = {...s, d}; } return b; }
 const statusOf = sp => (S.community.status || {})['spot:' + sp.id] || (S.localStatus || {})['spot:' + sp.id] || null;
@@ -790,7 +809,7 @@ function knobBlock(sp){
 }
 const catOf = sp => sp.cat || ((sp.community || sp.local) ? (sp.type==='Park' ? 'park' : 'spot') : 'park');
 function kindLabel(sp){
-  const c = catOf(sp), who = sp.mine ? (sp.local ? 'Only on this phone' : 'Added by you') : sp.community ? 'Shared by a skater' : '';
+  const c = catOf(sp), who = sp.mine ? (sp.local ? 'Only on this phone' : 'Added by you') : sp.by ? '@' + esc(sp.by) : sp.community ? 'Shared by a skater' : '';
   const t = c==='park' ? 'Skatepark' : 'Street spot' + (sp.type && sp.type!=='Other' ? ' · ' + esc(sp.type) : '');
   const kn = c !== 'park' && statusOf(sp)?.knobbed ? ' <span class="kind knobbed">Knobbed</span>' : '';
   return `<span class="kind ${c}"><i></i>${t}</span>${kn}${who ? ` <span class="kind who">${who}</span>` : ''}`;
@@ -861,7 +880,7 @@ function stopCard(s, max=4, keys=null){
 /* ================= RENDER: tab ================= */
 function renderTab(){
   if (S.tab==='map'){ S.tab = 'near'; S.pos.near = 'peek'; }
-  const group = {near:'near', spots:'spots'}[S.tab] || 'more';
+  const group = {near:'near', spots:'spots', leaders:'spots'}[S.tab] || 'more';
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab===group ? 'page' : 'false'));
   document.body.classList.toggle('mapmode', isMapTab());
   const v = $('#view');
@@ -909,15 +928,21 @@ function renderTab(){
       <div id="dyn"></div>`;
   } else if (S.tab==='alerts'){
     v.innerHTML = `${title('Alerts')}${backMore}${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> The alerts below are examples.</div>':''}<div class="h">Service alerts</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>`;
+  } else if (S.tab==='leaders'){
+    v.innerHTML = `${title('Leaderboard')}<button class="iconbtn ghost" data-tab="spots" style="align-self:flex-start;height:36px;font-size:13px">‹ Skate</button>
+      ${accountsOn() && !signedIn() ? `<div class="note">Want your name up here? <button class="vc-btn" data-acct="signin">Sign in</button> and add your spots.</div>` : ''}
+      <div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>`;
+    loadLeaders();
   } else if (S.tab==='more'){
     v.innerHTML = `${title('More')}<div class="linelist">
       <button class="lrow" data-tab="lines"><span class="t">Routes</span><span class="m">Every Muni and BART line, live vehicles</span></button>
       <button class="lrow" data-tab="alerts"><span class="t">Alerts</span><span class="m">${S.alerts.length ? S.alerts.length+' active' : 'Service changes'}</span></button>
+      <button class="lrow" data-tab="leaders"><span class="t">Leaderboard</span><span class="m">Who’s added the most spots and hills</span></button>
       <button class="lrow" data-tab="settings"><span class="t">Settings</span><span class="m">Theme, Nearby range, hill estimates</span></button>
       <button class="lrow" id="openTerms"><span class="t">Terms & safety</span><span class="m">Skate at your own risk</span></button></div>
       <div class="credit">Halte SF · Transit data: 511.org · Not an official SFMTA app</div>`;
   } else {
-    v.innerHTML = title('Settings') + backMore + renderSettings();
+    v.innerHTML = title('Settings') + backMore + (accountsOn() ? '<div class="h">Account</div>' + accountBlock() : '') + renderSettings();
   }
   renderDyn();
 }
@@ -951,7 +976,7 @@ function renderDyn(){
     const all = allHills().map(h => ({...h, d:dist(ref, h.start)})).sort((a,b)=>a.d-b.d);
     all.forEach(loadHillRoute);
     const shared = all.filter(h => h.community || h.local), more = all.filter(h => !h.community && !h.local);
-    const hcard = h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${h.r ? dhBadge(h.r) : '<span class="kind" style="color:var(--muted)">Measuring route…</span>'}${h.community?` <span class="kind${h.mine?' mine':''}"><i></i>${h.mine?'Added by you':'Community hill'}</span>`:h.local?' <span class="kind mine"><i></i>Only on this phone</span>':''}</span><span class="dist">${fmtAway(h.d, 'spots')}</span></button>
+    const hcard = h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${h.r ? dhBadge(h.r) : '<span class="kind" style="color:var(--muted)">Measuring route…</span>'}${h.community?` <span class="kind${h.mine?' mine':''}"><i></i>${h.mine?'Added by you':h.by?'@'+esc(h.by):'Community hill'}</span>`:h.local?' <span class="kind mine"><i></i>Only on this phone</span>':''}</span><span class="dist">${fmtAway(h.d, 'spots')}</span></button>
       ${h.r ? `<div class="hstats"><div><b>${h.r.grade}%</b>avg grade</div><div><b>${h.r.length} m</b>long</div><div><b>${Math.round(h.r.drop)} m</b>drop</div></div>` : ''}</article>`;
     d.innerHTML = all.length ? (shared.length ? `<div class="h">Shared by skaters · ${shared.length}</div>` + shared.map(hcard).join('') : `<div class="note">No shared hills yet. Tap <b>+ Add</b> to share your line.</div>`)
         + (more.length ? `<div class="h">More SF hills</div>` + more.slice(0, 30).map(hcard).join('') : '')
@@ -974,6 +999,8 @@ function renderDyn(){
       .sort((a,b)=>(a.mode===b.mode?0:a.mode==='bart'?-1:b.mode==='bart'?1:a.mode==='rail'?-1:b.mode==='rail'?1:a.mode==='cable'?-1:1) || a.code.localeCompare(b.code,'en',{numeric:true}));
     d.innerHTML = ls.length ? `<div class="linelist">${ls.map(l=>`<button class="lrow" data-open-line="${esc(l.id)}">${badge(l.id)}<span class="t">${esc(l.name)}</span><span class="m">${{rail:'Metro',bus:'Bus',cable:'Cable car',bart:'BART'}[l.mode]}</span></button>`).join('')}</div>`
       : '<div class="note">No matching routes.</div>';
+  } else if (S.tab==='leaders'){
+    d.innerHTML = leadersHtml();
   } else if (S.tab==='alerts'){
     d.innerHTML = S.alerts.length ? S.alerts.map(a=>`<article class="alert"><div class="ls">${a.lines.map(l=>badge(l,true)).join('')}</div><h3>${esc(a.title)}</h3>${a.body?`<p>${esc(a.body)}</p>`:''}</article>`).join('')
       : '<div class="note">No service alerts right now.</div>';
@@ -1247,7 +1274,8 @@ function mapChrome(){
     <div class="pincard" id="pincard" hidden></div>`;
 }
 function skateTop(){
-  const seg = `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="${S.spotSeg!=='hills'}">Spots</button><button data-seg="hills" aria-pressed="${S.spotSeg==='hills'}">Hills</button></div>`;
+  const lb = `<button class="lbbtn" data-tab="leaders"><span>Leaderboard</span><small>${signedIn() ? '@' + esc(S.me.name) + ' · see your rank' : 'Who’s added the most'} ›</small></button>`;
+  const seg = lb + `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="${S.spotSeg!=='hills'}">Spots</button><button data-seg="hills" aria-pressed="${S.spotSeg==='hills'}">Hills</button></div>`;
   if (S.spotSeg==='hills') return seg + (S.mode==='demo' ? '<div class="note"><b>Demo mode.</b> This is a sample hill. The installed app shows every hill skaters have shared.</div>' : '')
     + `<div class="searchrow"><div class="note" style="flex:1;margin:0">Tap a hill for its profile, ride time and the bus to the top.</div><button class="iconbtn" data-add-what>+ Add</button></div>`;
   return seg + (S.mode==='demo' ? '<div class="note"><b>Demo mode.</b> These are sample skateparks.</div>' : '')
@@ -1314,13 +1342,72 @@ function endBrowse(){
   renderDyn(); if (S.tab==='near') refreshArrivals(); placeOverlays();
 }
 
+
+/* ================= ACCOUNTS (only needed to add spots, skateparks and hills) ================= */
+S.session = store.get('session', null); S.me = store.get('me', null); S.gcid = '';
+const accountsOn = () => !!S.gcid;
+const signedIn = () => !!(S.session && S.me && S.me.name);
+function needAccount(reason){
+  if (!accountsOn() || signedIn()) return false;
+  openSheet({type: S.session && S.me && !S.me.name ? 'username' : 'signin', reason}); return true;
+}
+function loadGis(){
+  if (window.google?.accounts?.id) return Promise.resolve();
+  return loadGis._p ||= new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = ok; sc.onerror = () => { loadGis._p = null; bad(); }; document.head.appendChild(sc); });
+}
+async function mountGoogleButton(){
+  const el = $('#gbtn'); if (!el) return;
+  try {
+    await loadGis();
+    google.accounts.id.initialize({ client_id:S.gcid, ux_mode:'redirect', login_uri:new URL('api/511?ep=glogin', location.href).href, auto_select:false });
+    google.accounts.id.renderButton(el, { theme: isDark() ? 'filled_black' : 'outline', size:'large', text:'continue_with', shape:'pill', width: Math.min(320, el.clientWidth || 300) });
+  } catch { el.innerHTML = '<div class="note">Couldn’t load Google sign-in. Check your connection and try again.</div>'; }
+}
+async function handleLoginReturn(){
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('loginerr')){ history.replaceState(null, '', location.pathname); setTimeout(() => toast(h.get('loginerr')), 600); return; }
+  if (!h.get('s')) return;
+  S.session = h.get('s'); store.set('session', S.session); history.replaceState(null, '', location.pathname);
+  try { S.me = await post('me', {}, 10000); store.set('me', S.me); } catch { S.me = null; }
+  if (!S.me?.name) openSheet({type:'username'}); else toast(`Signed in as @${S.me.name}.`);
+}
+async function refreshMe(){
+  if (!S.session || S.mode !== 'live') return;
+  try { S.me = await post('me', {}, 10000); store.set('me', S.me); }
+  catch (e) { if (e.status === 401){ S.session = null; S.me = null; store.set('session', null); store.set('me', null); } }
+}
+S.leaders = null;
+async function loadLeaders(){
+  if (S.mode !== 'live'){ S.leaders = {leaders:[], demo:true}; if (S.tab==='leaders') renderDyn(); return; }
+  try { S.leaders = await api('leaders', {}, 15000); } catch { S.leaders = {error:true, leaders:[]}; }
+  if (S.tab==='leaders') renderDyn();
+}
+function leadersHtml(){
+  const L = S.leaders;
+  if (!L) return '<div class="note">Loading the leaderboard…</div>';
+  if (L.error) return '<div class="note">Couldn’t load the leaderboard. Try again in a moment.</div>';
+  const rows = L.leaders || [];
+  const me = S.me?.uid;
+  const how = `<div class="note">Points: spot or skatepark <b>1</b>, hill <b>2</b>, knobbed/skateable report <b>0.2</b>. Posts hidden after reports don’t count.</div>`;
+  if (!rows.length) return how + `<div class="note">${L.demo ? 'The leaderboard fills up in the installed app.' : 'Nobody’s on the board yet. Add a spot, skatepark or hill to take #1.'}</div>`;
+  return how + `<ol class="lb">${rows.map(r => `<li class="${r.uid===me?'me':''}"><span class="lb-r">${r.rank}</span>
+      <span class="lb-n"><b>@${esc(r.name)}</b><small>${[[r.spots,'spot'],[r.parks,'park'],[r.hills,'hill'],[r.reports,'report']].filter(x=>x[0]).map(([n,w])=>`${n} ${w}${n>1?'s':''}`).join(' · ')}</small></span>
+      <span class="lb-p">${r.points}<small>pts</small></span></li>`).join('')}</ol>`;
+}
+function accountBlock(){
+  if (!accountsOn()) return '';
+  if (signedIn()) return `<div class="set"><span>Signed in as <b>@${esc(S.me.name)}</b>. Your spots, skateparks and hills show your name and count on the leaderboard.</span>
+      <div class="sheet-actions"><button class="iconbtn ghost" data-acct="rename">Change name</button><button class="iconbtn ghost danger" data-acct="logout">Sign out</button></div></div>`;
+  return `<div class="set"><span>You don’t need an account to use Halte. Sign in only to add spots, skateparks and hills and get on the leaderboard.</span>
+      <button class="iconbtn" data-acct="signin">Sign in with Google</button></div>`;
+}
 /* ================= MAP ENGINE (MapLibre, with a tiny Leaflet-style wrapper) ================= */
 // Zoom levels below use the classic web-map scale (MapLibre's zoom + 1), so thresholds like 15/16 keep their meaning.
 S.mapKey = undefined;
 async function getMapKey(){
   if (S.mapKey !== undefined) return S.mapKey;
-  if (S.mode !== 'live'){ S.mapKey = ''; return ''; }
-  try { S.mapKey = (await api('config', {}, 5000)).maptilerKey || ''; } catch { S.mapKey = ''; }
+  if (S.mode !== 'live') return ''; // not known to be online yet: ask again later instead of remembering "no key"
+  try { const c = await api('config', {}, 5000); S.mapKey = c.maptilerKey || ''; S.gcid = c.googleClientId || ''; } catch { return ''; }
   return S.mapKey;
 }
 function mapStyle(key){
@@ -1740,6 +1827,21 @@ function renderSheet(){
   } else if (s.type==='terms'){
     el.innerHTML = `<div class="sheet-h"><h2>Terms & safety<div class="meta">${S.termsOk?'Accepted':'Not accepted yet'} · version ${TERMS_VERSION}</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b"><div class="terms">${TERMS_HTML}</div></div>`;
+  } else if (s.type==='signin'){
+    el.innerHTML = `<div class="sheet-h"><h2>Sign in to add<div class="meta">Browsing never needs an account</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b">
+        <div class="note">Sign in once to add spots, skateparks and hills. Your posts show the username you pick and earn points on the leaderboard.</div>
+        <div id="gbtn" style="min-height:44px;display:flex;justify-content:center"></div>
+        <div class="note" style="font-size:12.5px">Halte keeps only an anonymous ID and your username. Your email and Google name are never shown or stored. Under 18? Ask a parent or guardian first (Terms, section 7).</div>
+      </div>`;
+    mountGoogleButton();
+  } else if (s.type==='username'){
+    el.innerHTML = `<div class="sheet-h"><h2>${S.me?.name ? 'Change your name' : 'Pick a username'}<div class="meta">Shown on your posts and the leaderboard</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b">
+        <div class="field"><label for="unName">Username</label><input id="unName" value="${esc(S.me?.name || '')}" placeholder="e.g. clipper_bomber" maxlength="20" autocomplete="off" autocapitalize="none"></div>
+        <div class="note" id="unMsg">3–20 letters, numbers, _ or . Don’t use your real full name.</div>
+        <button class="iconbtn" id="unSave" style="width:100%">Save</button>
+      </div>`;
   } else if (s.type==='addwhat'){
     el.innerHTML = `<div class="sheet-h"><h2>What are you adding?<div class="meta">Everything you add is public</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b"><div class="linelist">
@@ -1854,7 +1956,7 @@ document.addEventListener('click', async e => {
   if (ds.report){ const [kind, id] = ds.report.split(':'); if (!t.dataset.armed){ t.dataset.armed = '1'; t.textContent = 'Tap again to report'; return; }
     try { await post('report', {kind, id}, 15000); t.textContent = 'Reported'; t.disabled = true; toast('Thanks. Items reported by 3 people are hidden.'); loadCommunity(); }
     catch (e) { toast(e.message || 'Couldn’t send the report.'); } return; }
-  if (t.id==='addHill'){ S.hillPick = {name:'', pts:[]}; openSheet({type:'addhill'}); return; }
+  if (t.id==='addHill'){ if (needAccount('add')) return; S.hillPick = {name:'', pts:[]}; openSheet({type:'addhill'}); return; }
   if ('undoPin' in ds){ S.hillPick?.pts.pop(); drawPickedPins(); mapMsg(); return; }
   if ('donePins' in ds){ if (S.hillPick?.pts.length >= 2){ S.hillPick.picking = false; mapMsg(); openSheet({type:'addhill'}); } return; }
   if ('cancelHill' in ds){ S.hillPick = null; S.hillLayer?.clearLayers(); mapMsg(); drawHills(); return; }
@@ -1897,14 +1999,20 @@ document.addEventListener('click', async e => {
     } catch (e) { t.disabled = false; t.textContent = 'Share publicly'; toast(e.status===503 ? 'Public sharing isn’t switched on yet.' : (e.message || 'Couldn’t share.')); }
     return; }
   if ('cancelPick' in ds){ S.pickSpot = false; mapMsg(); openSheet({type:'addspot'}); return; }
-  if (t.id==='addSpot'){ S.spotDraft = null; openSheet({type:'addspot'}); return; }
+  if (t.id==='addSpot'){ if (needAccount('add')) return; S.spotDraft = null; openSheet({type:'addspot'}); return; }
   if (ds.knob){ const id = ds.knobId, status = ds.knob;
     if (S.mode==='demo'){ (S.localStatus ||= {})['spot:'+id] = {knobbed:status==='knobbed', at:Date.now(), knobbedVotes:+(status==='knobbed'), clearVotes:+(status==='clear')}; }
     else { t.disabled = true;
       try { const r = await post('status', {kind:'spot', id, status, token:S.ownerToken}, 15000); (S.community.status ||= {})[r.key] = r; }
       catch (e) { t.disabled = false; toast(e.status===503 ? 'Reports need the community storage switched on.' : (e.message || 'Couldn’t send that.')); return; } }
     toast(status==='knobbed' ? 'Thanks. Marked as knobbed for everyone.' : 'Thanks. Marked as skateable.'); renderSheet(); renderDyn(); drawSpots(); return; }
-  if ('addWhat' in ds){ openSheet({type:'addwhat'}); return; }
+  if (ds.acct==='signin'){ openSheet({type:'signin'}); return; }
+  if (ds.acct==='rename'){ openSheet({type:'username'}); return; }
+  if (ds.acct==='logout'){ try { await post('logout', {}, 8000); } catch {} S.session = null; S.me = null; store.set('session', null); store.set('me', null); toast('Signed out.'); renderTab(); return; }
+  if (t.id==='unSave'){ const name = $('#unName').value.trim(); t.disabled = true;
+    try { S.me = await post('setname', {name}, 10000); store.set('me', S.me); closeSheet(); toast(`You’re @${S.me.name}. Now add your spots!`); renderTab(); }
+    catch (e) { t.disabled = false; const m = $('#unMsg'); if (m) m.textContent = e.message || 'Couldn’t save that name.'; } return; }
+  if ('addWhat' in ds){ await getMapKey(); if (needAccount('add')) return; openSheet({type:'addwhat'}); return; }
   if (ds.addKind && ds.addKind!=='hill' && S.sheet?.type==='addspot' && S.spotDraft){ const dr = S.spotDraft;
     dr.name = $('#spName')?.value ?? dr.name; dr.note = $('#spNote')?.value ?? dr.note; dr.cat = ds.addKind; dr.type = dr.cat==='park' ? 'Park' : (dr.type==='Park' ? 'Ledge' : dr.type); renderSheet(); return; }
   if (ds.addKind){ if (ds.addKind==='hill'){ S.hillPick = {name:'', pts:[]}; openSheet({type:'addhill'}); }
@@ -1995,6 +2103,7 @@ async function boot(){
   applyTheme(); measureTabs(); renderTab(); startWatch(false);
   try { const p = await api('ping', {}, 4000); if (p.ok) S.mode = 'live'; } catch {}
   try { await loadBase(); } catch { S.mode = 'demo'; await loadBase(); toast('The data server isn’t ready, so sample data is shown.'); }
+  await getMapKey(); handleLoginReturn(); refreshMe();
   renderTab(); refreshArrivals(); loadFog();
   setInterval(() => { if (!document.hidden) loadFog(true); }, 15*60000);
   setInterval(refreshArrivals, S.mode==='live' ? 60000 : 30000);

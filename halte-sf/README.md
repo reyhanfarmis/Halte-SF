@@ -5,7 +5,7 @@ A web app you can install on your phone's home screen (PWA). Features:
 - **Transit**: a live map with a pull-up list, like the Transit app. Drag the sheet down for the map, up for departures. Every Muni and BART route within your range (500 m, 1 km or 1.5 km) is shown once at its closest stop, with real-time arrivals. The map follows you like Google Maps, and the compass button turns it to face where you're facing
 - **Karl the Fog**: a fog check for where you are (Open-Meteo visibility and low clouds), with when it should burn off, plus a fog warning on hills
 - **Favorites**: save as many stops as you like (shown at the top of Nearby)
-- **Skate**: its own map with only spots and hills, plus a pull-up list (shared hills first). Tap one for directions by bus or train. Drag the map to browse around a center pin
+- **Skate**: its own map with only spots and hills, plus a pull-up list (shared hills first). Tap one for directions by bus or train.
 - **Spots**: SF skateparks from OpenStreetMap plus street spots anyone can add (public, shared with everyone), each with live one-seat Muni or BART directions from where you are
 - **Hills**: drop up to 12 pins along the line you actually bomb; the route follows bikeable streets through every pin. An elevation profile sampled every ~25 m (USGS lidar) checks that it finishes lower than it starts, that any uphill bits are short enough to walk (8 m or less), and that it ends downhill. Live directions to the top, and hills anyone can add (shared publicly)
 - **Ride time estimate**: for each hill, a physics model (gravity, rolling friction for 99a wheels, air drag, today's wind from Open-Meteo, your weight and top speed from Settings) estimates the ride down, the walk back up, one full lap, and the free-roll top speed
@@ -80,6 +80,20 @@ Without `MAPTILER_KEY`, the app falls back to OpenStreetMap's standard raster ti
 3. Optional: add an environment variable `ADMIN_TOKEN` (a long random string you keep private). Using it as the token in a delete request removes any spot or hill.
 
 Until storage is connected, new spots and hills are saved on the phone only, and the app says so.
+
+## Accounts and the leaderboard (Sign in with Google)
+
+Browsing never needs an account. Adding spots, skateparks and hills does, once you switch sign-in on:
+
+1. Go to console.cloud.google.com → create a project (e.g. "Halte SF").
+2. **APIs & Services → OAuth consent screen**: choose External, app name "Halte SF", your email as support and developer contact. Save. (Only the basic "openid" sign-in is used, so no review is needed.)
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID** → type **Web application**.
+   - Authorized JavaScript origins: `https://halte-sf.vercel.app`
+   - Authorized redirect URIs: `https://halte-sf.vercel.app/api/511?ep=glogin`
+4. Copy the **Client ID** (ends in `.apps.googleusercontent.com`). It isn't a secret.
+5. In Vercel → project → Settings → Environment Variables, add `GOOGLE_CLIENT_ID` with that value, then redeploy.
+
+Until `GOOGLE_CLIENT_ID` is set, adding stays open without an account. Halte stores only an anonymous ID and the username people pick. Points: spot or skatepark 1, hill 2, knobbed/skateable report 0.2.
 
 ## Not built yet
 
