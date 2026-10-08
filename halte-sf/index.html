@@ -425,7 +425,7 @@ function depRow(stop, g, withBell){
     ${badge(g.line)}
     <div style="min-width:0"><div class="dest">${esc(g.dest || L.name)}</div>
       <div class="sub"><span>${esc(L.name)}</span>${occ(a.occ)}</div></div>
-    <div class="eta"><div class="big ${a.rt?'rt':''}">${a.rt?ICON.pulse:''}<b>${m<=0?'Kini':m}</b>${m>0?'<small>min</small>':''}</div>
+    <div class="eta"><div class="big ${a.rt?'rt':''}">${a.rt?ICON.pulse:''}<b>${m<=0?'Now':m}</b>${m>0?'<small>min</small>':''}</div>
       ${a.rt?'':'<span class="sched">scheduled</span>'}
       ${next.length?`<span class="next">then ${next.join(', ')} min</span>`:''}</div>
     ${withBell?`<button class="bell" aria-pressed="${on}" aria-label="Remind me" data-bell="${esc(key)}" data-name="${esc(stop.name)}" data-line="${esc(L.code)}" data-dest="${esc(g.dest)}" data-eta="${esc(a.eta)}">${ICON.bell}</button>`:''}
@@ -453,7 +453,7 @@ function renderTab(){
       <div class="searchrow"><input class="search" id="q" type="search" placeholder="Search stops, e.g. Castro" autocomplete="off" aria-label="Search stops">
       <button class="iconbtn" id="locBtn" aria-label="Use my location">${ICON.loc}</button></div>
       <div class="results" id="sr"></div>
-      <div class="h"Near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
+      <div class="h">Near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
       <div class="credit">Transit data: 511.org</div>`;
   } else if (S.tab==='map'){
     v.innerHTML = `<div class="mapwrap" id="mapwrap"><div id="map" aria-label="Stop map"></div>
