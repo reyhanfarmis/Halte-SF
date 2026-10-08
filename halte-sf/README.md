@@ -5,8 +5,8 @@ A web app you can install on your phone's home screen (PWA). Features:
 - **Nearby**: every Muni and BART route within your range (500 m, 1 km or 1.5 km), each shown once at its closest stop, with real-time arrivals and walking time
 - **Map**: every stop around you (tap a dot to see arrivals), "Show on map" from any stop, and route lines with live vehicles
 - **Favorites**: save as many stops as you like (shown at the top of Nearby)
-- **Spots**: SF skateparks from OpenStreetMap plus street spots you add yourself, each with live one-seat Muni or BART directions from where you are
-- **Hills**: a start and finish for each hill, a route that follows the streets between them, an elevation profile sampled every ~25 m (USGS lidar) that checks the route really goes downhill, live directions to the start, and your own hills (tap start, then finish)
+- **Spots**: SF skateparks from OpenStreetMap plus street spots anyone can add (public, shared with everyone), each with live one-seat Muni or BART directions from where you are
+- **Hills**: a start and finish for each hill, a route that follows the streets between them, an elevation profile sampled every ~25 m (USGS lidar) that checks the route really goes downhill, live directions to the start, and hills anyone can add (tap start, then finish; shared publicly)
 - **Terms & safety**: a skate-at-your-own-risk agreement users must accept before Spots and Hills
 - **Routes**: every Muni route (Metro, bus, cable car) and BART line, stops in each direction, and where each vehicle is heading
 - **Alerts**: Muni and BART service alerts
@@ -61,8 +61,16 @@ Street maps use OpenStreetMap's free standard tiles, which are fine for personal
 - Skateparks and street names: © OpenStreetMap contributors (ODbL), loaded from the Overpass API and cached for a day.
 - Street routes for hills: FOSSGIS OSRM foot routing (routing.openstreetmap.de), © OpenStreetMap contributors.
 - Elevation: USGS 3DEP Elevation Point Query Service (falls back to Open-Meteo).
-- Spots and hills users add are stored only on their own phone.
+- Spots and hills people add are public and stored in Upstash Redis (see below). Each phone gets a private random token so only the person who added something (or you, with ADMIN_TOKEN) can delete it. Anything reported by 3 different people is hidden automatically. Adding is limited to 10 per hour per connection, and only inside San Francisco.
 - The terms in the app are a starting template, not legal advice. Have a lawyer review them if the app goes public or makes money.
+
+## Public spots and hills: storage setup
+
+1. In Vercel, open the halte-sf project → **Storage** → **Create Database** (or Marketplace) → **Upstash for Redis** → free plan → connect it to the project.
+2. Vercel adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`) automatically. Redeploy.
+3. Optional: add an environment variable `ADMIN_TOKEN` (a long random string you keep private). Using it as the token in a delete request removes any spot or hill.
+
+Until storage is connected, new spots and hills are saved on the phone only, and the app says so.
 
 ## Not built yet
 
