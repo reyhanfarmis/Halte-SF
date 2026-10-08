@@ -633,7 +633,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", maxAge ? `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` : "no-store");
     res.status(code).send(JSON.stringify(body));
   };
-  if (!KEY && !["config", "wind", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
+  if (!KEY && !["config", "wind", "fog", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
 
   try {
     if (req.method === "POST") {
@@ -699,6 +699,38 @@ module.exports = async function handler(req, res) {
           return { speed: +c.wind_speed_10m || 0, from: +c.wind_direction_10m || 0, gusts: +c.wind_gusts_10m || 0, time: c.time || "" };
         });
         return send(200, w, 600);
+      }
+      case "fog": {
+        // Karl the Fog check (Open-Meteo, free, no key): is it foggy here now, and when does it clear? Cached 15 min per ~1 km cell
+        const p = parsePoint(q.at);
+        if (!p) return send(400, { error: "at must be lat,lon" });
+        const key = "fog|" + p.lat.toFixed(2) + "," + p.lon.toFixed(2);
+        const f = await cached(key, 900, async () => {
+          const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat.toFixed(3)}&longitude=${p.lon.toFixed(3)}&hourly=visibility,cloud_cover_low,relative_humidity_2m,weather_code&timezone=America%2FLos_Angeles&forecast_days=2`);
+          if (!r.ok) throw Object.assign(new Error("Weather responded " + r.status), { status: 502 });
+          const h = (await r.json()).hourly || {};
+          const times = h.time || [];
+          const nowLocal = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+          const stamp = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") + "T" + String(d.getHours()).padStart(2, "0") + ":00";
+          let i = times.indexOf(stamp(nowLocal));
+          if (i < 0) i = 0;
+          const at = (k) => ({ vis: +(h.visibility || [])[k], low: +(h.cloud_cover_low || [])[k], rh: +(h.relative_humidity_2m || [])[k], code: +(h.weather_code || [])[k] });
+          const level = (x) => {
+            if (x.code === 45 || x.code === 48 || (x.vis > 0 && x.vis < 1500)) return "thick";
+            if ((x.vis > 0 && x.vis < 5000) || (x.low >= 80 && x.rh >= 88)) return "fog";
+            if (x.low >= 50 && x.rh >= 80) return "patchy";
+            return "clear";
+          };
+          const now = at(i), lvl = level(now);
+          let clears = null, arrives = null;
+          for (let k = i + 1; k < Math.min(times.length, i + 14); k++) {
+            const l = level(at(k));
+            if (lvl !== "clear" && !clears && (l === "clear" || l === "patchy")) clears = times[k];
+            if (lvl === "clear" && !arrives && (l === "fog" || l === "thick")) arrives = times[k];
+          }
+          return { level: lvl, visibility: now.vis, lowCloud: now.low, clears, arrives, time: times[i] || "" };
+        });
+        return send(200, f, 600);
       }
       case "config":
         // MapTiler keys are meant to be used in the browser; restrict yours to this site's address in MapTiler.
