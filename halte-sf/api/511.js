@@ -501,7 +501,7 @@ async function rateLimit(ip, kind, max) {
   const key = `rl:${kind}:${sha(ip).slice(0, 16)}:${Math.floor(Date.now() / 3600000)}`;
   const n = await redis("INCR", key);
   if (n === 1) await redis("EXPIRE", key, 3700);
-  if (n > max) throw Object.assign(new Error("Too many additions from this connection. Try again in an hour."), { status: 429 });
+  if (n > max) throw Object.assign(new Error(kind === "status" ? "Too many reports from this connection. Try again in an hour." : "Too many additions from this connection. Try again in an hour."), { status: 429 });
 }
 
 function publicView(item) {
@@ -511,13 +511,39 @@ function publicView(item) {
 
 async function listCommunity() {
   return cached("community", 20, async () => {
-    const [sp, hl] = await Promise.all([redis("HVALS", "c:spots"), redis("HVALS", "c:hills")]);
+    const [sp, hl, st] = await Promise.all([redis("HVALS", "c:spots"), redis("HVALS", "c:hills"), redis("HGETALL", "c:status").catch(() => [])]);
     const parse = (arr) => (arr || []).map((x) => { try { return JSON.parse(x); } catch { return null; } })
       .filter((x) => x && !x.hidden).map(publicView);
-    return { spots: parse(sp), hills: parse(hl) };
+    const status = {};
+    const flat = Array.isArray(st) ? st : Object.entries(st || {}).flat();
+    for (let i = 0; i + 1 < flat.length; i += 2) { try { status[flat[i]] = summarizeStatus(JSON.parse(flat[i + 1])); } catch {} }
+    return { spots: parse(sp), hills: parse(hl), status };
   });
 }
 const bust = () => mem.delete("community");
+
+// "Is it knobbed?" reports: the latest report from any phone decides; one vote per phone per spot
+function summarizeStatus(cur) {
+  const v = [...((cur && cur.votes) || [])].sort((a, b) => b.at - a.at);
+  const last = v[0], recent = v.filter((x) => Date.now() - x.at < 180 * 86400000);
+  return { knobbed: !!last && last.s === "knobbed", at: last ? last.at : null,
+    knobbedVotes: recent.filter((x) => x.s === "knobbed").length, clearVotes: recent.filter((x) => x.s === "clear").length };
+}
+async function setStatus(body, ip) {
+  const kind = body.kind === "hill" ? "hill" : "spot";
+  const id = cleanText(body.id, 80), st = body.status === "knobbed" ? "knobbed" : body.status === "clear" ? "clear" : null;
+  if (!id || !st) throw Object.assign(new Error("Missing spot or status."), { status: 400 });
+  if (!body.token || String(body.token).length < 16) throw Object.assign(new Error("Missing device token."), { status: 400 });
+  await rateLimit(ip, "status", 30);
+  const key = kind + ":" + id;
+  let cur = null; try { cur = JSON.parse((await redis("HGET", "c:status", key)) || "null"); } catch {}
+  cur = cur && Array.isArray(cur.votes) ? cur : { votes: [] };
+  const who = sha(body.token).slice(0, 16);
+  cur.votes = cur.votes.filter((x) => x.w !== who).concat({ w: who, s: st, at: Date.now() }).slice(-25);
+  await redis("HSET", "c:status", key, JSON.stringify(cur));
+  bust();
+  return { key, ...summarizeStatus(cur) };
+}
 
 async function addSpot(body, ip) {
   const name = cleanText(body.name, 60), note = cleanText(body.note, 300);
@@ -634,7 +660,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", maxAge ? `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` : "no-store");
     res.status(code).send(JSON.stringify(body));
   };
-  if (!KEY && !["config", "wind", "fog", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
+  if (!KEY && !["config", "wind", "fog", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report", "status"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
 
   try {
     if (req.method === "POST") {
@@ -645,6 +671,7 @@ module.exports = async function handler(req, res) {
         case "addhill": return send(200, await addHill(body, ip));
         case "delete": return send(200, await deleteItem(body));
         case "report": return send(200, await reportItem(body, ip));
+        case "status": return send(200, await setStatus(body, ip));
         default: return send(400, { error: "unknown ep" });
       }
     }
