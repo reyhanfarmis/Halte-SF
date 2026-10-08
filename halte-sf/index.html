@@ -359,7 +359,7 @@ const DEMO_SPOTS = [
   {id:'ds3', name:'Balboa Skatepark', lat:37.72470, lon:-122.44400, kind:'park'},
   {id:'ds4', name:'Crocker Amazon Skatepark', lat:37.71100, lon:-122.43720, kind:'park'},
 ];
-const TERMS_VERSION = '2026-10-07';
+const TERMS_VERSION = '2026-10-08';
 const TERMS_HTML = `
 <p class="big">Know your limits. Skate at your own risk.</p>
 <p>Halte SF shows skate spots, hills and Muni directions for information only. Read these terms before using the Spots and Hills features.</p>
@@ -377,10 +377,12 @@ const TERMS_HTML = `
 <p>You agree to cover any claims, costs or damages brought against the developer that result from your skating, your conduct, or content you add to the app.</p>
 <h3>7. Minors</h3>
 <p>If you are under 18, you may use the Spots and Hills features only with a parent or guardian’s permission, and your parent or guardian accepts these terms on your behalf.</p>
-<h3>8. Your content and transit data</h3>
-<p>Spots and hills you add are saved on your device. Don’t add private property or places where skating is prohibited. Transit times are estimates from 511.org. Halte SF is not affiliated with SFMTA or Muni.</p>
-<h3>9. General</h3>
-<p>These terms are governed by the laws of California. If any part is unenforceable, the rest still applies. Terms may be updated; you’ll be asked to accept a new version. Version ${'2026-10-07'}.</p>`;
+<h3>8. Spots and hills you share are public</h3>
+<p>Spots and hills you add are visible to everyone who uses the app. Only add places that are public. Don’t add private property, someone’s home, school grounds, or places where skating is prohibited, and don’t include personal information in names or notes. You give the developer permission to show, store and remove what you share. Anything can be reported; items reported by several people are hidden, and the developer can remove anything at any time. Shared spots and hills are not checked or endorsed by the developer.</p>
+<h3>9. Transit data</h3>
+<p>Transit times are estimates from 511.org. Halte SF is not affiliated with SFMTA, Muni or BART.</p>
+<h3>10. General</h3>
+<p>These terms are governed by the laws of California. If any part is unenforceable, the rest still applies. Terms may be updated; you’ll be asked to accept a new version. Version ${'2026-10-08'}.</p>`;
 const DEMO_HILLS = [
   {id:'dh1', street:'Sample hill', name:'Sample hill: Hyde St → Leavenworth St', a:{lat:37.80150,lon:-122.41840,cross:'Hyde St'}, b:{lat:37.80130,lon:-122.41670,cross:'Leavenworth St'},
    route:{start:{lat:37.80150,lon:-122.41840,elev:85}, finish:{lat:37.80130,lon:-122.41670,elev:40}, swapped:false, path:[[37.8015,-122.4184],[37.8014,-122.4176],[37.8013,-122.4167]],
@@ -502,7 +504,7 @@ async function loadHills(){
 S.hillRoutes = store.get('hillroutes', {});
 let hillQueue = Promise.resolve();
 function loadHillRoute(h){ // measured street route + elevation profile, one hill at a time
-  if (S.mode==='demo' || h.mine || S.hillRoutes[h.id] || h._loading) return;
+  if (S.mode==='demo' || h.route || h.mine || h.community || S.hillRoutes[h.id] || h._loading) return;
   h._loading = true;
   hillQueue = hillQueue.then(async () => {
     try { S.hillRoutes[h.id] = await api('hillroute', {a:`${h.a.lat},${h.a.lon}`, b:`${h.b.lat},${h.b.lon}`}, 60000); store.set('hillroutes', S.hillRoutes); }
@@ -513,11 +515,11 @@ function loadHillRoute(h){ // measured street route + elevation profile, one hil
 function hillView(h){
   const r = h.route || S.hillRoutes[h.id] || null;
   const startX = r ? (r.swapped ? h.b?.cross : h.a?.cross) : h.a?.cross, finishX = r ? (r.swapped ? h.a?.cross : h.b?.cross) : h.b?.cross;
-  const name = h.mine ? h.name : `${h.street}: ${startX || '?'} → ${finishX || '?'}`;
+  const name = (h.mine || h.community) ? h.name : `${h.street}: ${startX || '?'} → ${finishX || '?'}`;
   const start = r?.start || h.a;
   return {...h, name, r, start, startX, finishX};
 }
-const allHills = () => [...S.myHills.map(x=>({...x, mine:true})), ...S.hills].map(hillView);
+const allHills = () => [...S.community.hills.map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...S.myHills.map(x=>({...x, mine:true, local:true})), ...S.hills].map(hillView);
 const hillById = id => allHills().find(x=>x.id===id);
 function dhBadge(r){ return !r ? '' : r.downhillAll ? `<span class="dh">↘ Downhill the whole way</span>` : `<span class="dh up">↗ Climbs ${Math.round(r.climb)} m on the way</span>`; }
 function profileSvg(r){
@@ -531,18 +533,42 @@ function profileSvg(r){
     <circle cx="${x(0)}" cy="${y(P[0].e)}" r="4.5" fill="#14874D"/><circle cx="${x(len)}" cy="${y(P[P.length-1].e)}" r="4.5" fill="var(--fg)"/></svg>
     <div class="cap"><span>Start ${Math.round(P[0].e)} m</span><span>${r.length} m along the street</span><span>Finish ${Math.round(P[P.length-1].e)} m</span></div></div>`;
 }
+S.community = {spots:[], hills:[]};
+S.mine = new Set(store.get('mypublic', []));     // ids of public items this phone added
+S.ownerToken = store.get('owner', null);
+if (!S.ownerToken){ const a = new Uint8Array(24); crypto.getRandomValues(a); S.ownerToken = [...a].map(b=>b.toString(16).padStart(2,'0')).join(''); store.set('owner', S.ownerToken); }
+async function post(ep, body, ms=60000){
+  const ctl = new AbortController(), to = setTimeout(()=>ctl.abort(), ms);
+  try {
+    const r = await fetch(new URL('api/511?ep='+ep, location.href), {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body), signal:ctl.signal});
+    const j = await r.json().catch(()=>({}));
+    if (!r.ok) throw Object.assign(new Error(j.error || 'HTTP '+r.status), {status:r.status});
+    return j;
+  } finally { clearTimeout(to); }
+}
+function rememberMine(id){ S.mine.add(id); store.set('mypublic', [...S.mine]); }
+async function loadCommunity(){
+  if (S.mode==='demo') return;
+  try { S.community = await api('community', {}, 15000); S.communityOk = true; } catch (e) { S.communityOk = false; }
+  if (S.tab==='spots') renderDyn(); if (S.tab==='map'){ drawSpots(); drawHills(); }
+  if (S.sheet && (S.sheet.type==='spot' || S.sheet.type==='hill')) renderSheet();
+}
 async function loadSpots(){
-  loadHills();
+  loadHills(); loadCommunity();
   if (S.mode === 'demo'){ S.spots = DEMO_SPOTS; return; }
   const c = store.get('spots', null);
   if (c && Date.now() - c.t < 86400000){ S.spots = c.spots; }
   else { try { const sp = await api('spots', {}, 30000); S.spots = sp; store.set('spots', {t:Date.now(), spots:sp}); } catch {} }
   if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawSpots();
 }
-const allSpots = () => [...S.mySpots.map(x=>({...x, mine:true})), ...S.spots];
+const allSpots = () => [...S.community.spots.map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...S.mySpots.map(x=>({...x, mine:true, local:true})), ...S.spots];
 const spotById = id => allSpots().find(x=>x.id===id);
 function nearestStop(p){ let b=null; for (const s of S.stops){ const d = dist(p, s); if (!b || d < b.d) b = {...s, d}; } return b; }
-function kindLabel(sp){ return sp.mine ? `<span class="kind mine"><i></i>Your spot${sp.type?' · '+esc(sp.type):''}</span>` : `<span class="kind"><i></i>Skatepark</span>`; }
+function kindLabel(sp){
+  if (sp.community) return `<span class="kind${sp.mine?' mine':''}"><i></i>${sp.mine?'Added by you':'Community spot'}${sp.type?' · '+esc(sp.type):''}</span>`;
+  if (sp.local) return `<span class="kind mine"><i></i>Only on this phone${sp.type?' · '+esc(sp.type):''}</span>`;
+  return `<span class="kind"><i></i>Skatepark</span>`;
+}
 const walkMins = m => Math.max(1, Math.round(m*1.3/80));
 
 function nearStops(){
@@ -675,7 +701,7 @@ function renderDyn(){
   else if (S.tab==='spots' && S.spotSeg==='hills'){
     const list = allHills().map(h => ({...h, d:dist(S.here, h.start)})).sort((a,b)=>a.d-b.d);
     list.forEach(loadHillRoute);
-    d.innerHTML = list.length ? list.map(h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${h.r ? dhBadge(h.r) : '<span class="kind" style="color:var(--muted)">Measuring route…</span>'}${h.mine?' <span class="kind mine"><i></i>Your hill</span>':''}</span><span class="dist">${fmtDist(h.d)}</span></button>
+    d.innerHTML = list.length ? list.map(h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${h.r ? dhBadge(h.r) : '<span class="kind" style="color:var(--muted)">Measuring route…</span>'}${h.community?` <span class="kind${h.mine?' mine':''}"><i></i>${h.mine?'Added by you':'Community hill'}</span>`:h.local?' <span class="kind mine"><i></i>Only on this phone</span>':''}</span><span class="dist">${fmtDist(h.d)}</span></button>
       ${h.r ? `<div class="hstats"><div><b>${h.r.grade}%</b>avg grade</div><div><b>${h.r.length} m</b>long</div><div><b>${Math.round(h.r.drop)} m</b>drop</div></div>` : ''}</article>`).join('')
       : `<div class="note">Loading SF hills… this can take a few seconds the first time.</div>`;
   }
@@ -725,7 +751,8 @@ function renderSettings(){
   <div class="h">Everything included</div>
   <div class="set feat">
     <span>Unlimited favorites</span><span>On</span>
-    <span>Skate spots with Muni directions</span><span>On</span>
+    <span>Public spots and hills anyone can add</span><span>On</span>
+    <span>Skate spots with transit directions</span><span>On</span>
     <span>Hills with street routes and elevation profiles</span><span>On</span>
     <span>Live vehicle positions along routes</span><span>On</span>
     <span>Departure reminders</span><span>On</span>
@@ -981,7 +1008,9 @@ function renderSheet(){
         <div class="sheet-actions">
           <button class="iconbtn ghost" data-map-spot="${esc(sp.id)}">${ICON.loc} Show on map</button>
           <a class="iconbtn ghost" href="${gmapsLink(sp)}" target="_blank" rel="noopener" style="text-decoration:none">Google Maps</a>
+          ${sp.local?`<button class="iconbtn" data-share-spot="${esc(sp.id)}">Share publicly</button>`:''}
           ${sp.mine?`<button class="iconbtn ghost danger" data-del-spot="${esc(sp.id)}">Delete</button>`:''}
+          ${sp.community && !sp.mine?`<button class="iconbtn ghost" data-report="spot:${esc(sp.id)}">Report</button>`:''}
         </div>
         ${sp.note?`<div class="note">${esc(sp.note)}</div>`:''}
         <div class="h">Get there by Muni or BART</div>
@@ -1009,7 +1038,9 @@ function renderSheet(){
         <div class="sheet-actions">
           <button class="iconbtn ghost" data-map-hill="${esc(h.id)}">${ICON.loc} Show route on map</button>
           <a class="iconbtn ghost" href="${gmapsLink(h.start)}" target="_blank" rel="noopener" style="text-decoration:none">Google Maps to start</a>
+          ${h.local?`<button class="iconbtn" data-share-hill="${esc(h.id)}">Share publicly</button>`:''}
           ${h.mine?`<button class="iconbtn ghost danger" data-del-hill="${esc(h.id)}">Delete</button>`:''}
+          ${h.community && !h.mine?`<button class="iconbtn ghost" data-report="hill:${esc(h.id)}">Report</button>`:''}
         </div>
         <div class="h">Get to the start</div>
         ${trips}
@@ -1017,7 +1048,7 @@ function renderSheet(){
       </div>`;
   } else if (s.type==='addhill'){
     const hp = S.hillPick || {};
-    el.innerHTML = `<div class="sheet-h"><h2>Add a hill<div class="meta">Saved on this phone</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+    el.innerHTML = `<div class="sheet-h"><h2>Add a hill<div class="meta">Public: everyone using the app will see it</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
         <div class="field"><label for="hlName">Name</label><input id="hlName" value="${esc(hp.name||'')}" placeholder="e.g. Clipper St from Douglass" maxlength="60"></div>
         <div class="note">${hp.a && hp.b ? '✓ Start and finish set. Saving finds the street route between them and checks the elevation along it.' : 'Next you’ll tap the <b>start</b> (top) and then the <b>finish</b> (bottom) on the map. The route follows the streets between them.'}</div>
@@ -1028,7 +1059,7 @@ function renderSheet(){
       <div class="sheet-b"><div class="terms">${TERMS_HTML}</div></div>`;
   } else if (s.type==='addspot'){
     const dr = S.spotDraft || (S.spotDraft = {name:'', type:'Ledge', note:'', lat:null, lon:null});
-    el.innerHTML = `<div class="sheet-h"><h2>Add a spot<div class="meta">Saved on this phone</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+    el.innerHTML = `<div class="sheet-h"><h2>Add a spot<div class="meta">Public: everyone using the app will see it</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
         <div class="field"><label for="spName">Name</label><input id="spName" value="${esc(dr.name)}" placeholder="e.g. Embarcadero ledges" maxlength="60"></div>
         <div class="field"><label for="spType">Type</label><select id="spType">${SPOT_TYPES.map(t=>`<option${t===dr.type?' selected':''}>${t}</option>`).join('')}</select></div>
@@ -1036,7 +1067,8 @@ function renderSheet(){
         <div class="field"><span class="lbl" style="font-weight:600">Location</span>
           <div class="locrow"><button class="iconbtn ghost" id="spHere">${ICON.loc} Use where I am</button><button class="iconbtn ghost" id="spPick">Pick on map</button>
           ${dr.lat!=null?`<span class="locset">✓ Location set</span>`:''}</div></div>
-        <button class="iconbtn" id="spSave" style="width:100%">Save spot</button>
+        <div class="note">Don’t add private property, someone’s home, or places where skating is banned. Spots reported by 3 people are hidden.</div>
+        <button class="iconbtn" id="spSave" style="width:100%">Share spot</button>
       </div>`;
   } else if (s.type==='stop'){
     const st = S.stops.find(x=>x.id===s.id) || S.fav.find(x=>x.id===s.id) || {id:s.id, name:s.id};
@@ -1094,6 +1126,7 @@ function checkReminders(){
 document.addEventListener('click', async e => {
   const t = e.target.closest('button, .scrim, [data-track]'); if (!t) return;
   const ds = t.dataset;
+  if (ds.tab==='spots' || ds.tab==='map') loadCommunity();
   if (ds.tab){ if (ds.tab==='map'){ S.mapFocus = null; S.mapLine = null; S.mapSpot = null; S.mapHill = null; S.pickSpot = false; if (S.hillPick) S.hillPick.picking = false; }
     S.tab = ds.tab; renderTab(); window.scrollTo(0,0); if (ds.tab!=='settings' && ds.tab!=='map') refreshArrivals(); return; }
   if (ds.mapStop){ showOnMap({stop:ds.mapStop}); return; }
@@ -1111,8 +1144,20 @@ document.addEventListener('click', async e => {
   if (t.id==='openTerms'){ openSheet({type:'terms'}); return; }
   if (ds.openHill){ openSheet({type:'hill', id:ds.openHill}); return; }
   if (ds.mapHill){ showOnMap({hill:ds.mapHill}); return; }
-  if (ds.delHill){ if (t.dataset.armed){ S.myHills = S.myHills.filter(x=>x.id!==ds.delHill); store.set('myhills', S.myHills); closeSheet(); renderDyn(); drawHills(); toast('Hill deleted.'); }
-    else { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; } return; }
+  if (ds.delHill){ if (!t.dataset.armed){ t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
+    const h = hillById(ds.delHill);
+    if (h?.community){ try { await post('delete', {kind:'hill', id:h.id, token:S.ownerToken}, 15000); S.community.hills = S.community.hills.filter(x=>x.id!==h.id); } catch (e) { toast(e.message || 'Couldn’t delete.'); return; } }
+    else { S.myHills = S.myHills.filter(x=>x.id!==ds.delHill); store.set('myhills', S.myHills); }
+    closeSheet(); renderDyn(); drawHills(); toast('Hill deleted.'); return; }
+  if (ds.shareHill){ const h = S.myHills.find(x=>x.id===ds.shareHill); if (!h) return; t.disabled = true; t.textContent = 'Sharing…';
+    try { const pub = await post('addhill', {name:h.name, a:`${h.a.lat},${h.a.lon}`, b:`${h.b.lat},${h.b.lon}`, token:S.ownerToken});
+      rememberMine(pub.id); S.community.hills.unshift(pub); S.myHills = S.myHills.filter(x=>x.id!==h.id); store.set('myhills', S.myHills);
+      toast('Hill shared. Everyone can see it now.'); openSheet({type:'hill', id:pub.id}); renderDyn(); drawHills();
+    } catch (e) { t.disabled = false; t.textContent = 'Share publicly'; toast(e.status===503 ? 'Public sharing isn’t switched on yet.' : (e.message || 'Couldn’t share.')); }
+    return; }
+  if (ds.report){ const [kind, id] = ds.report.split(':'); if (!t.dataset.armed){ t.dataset.armed = '1'; t.textContent = 'Tap again to report'; return; }
+    try { await post('report', {kind, id}, 15000); t.textContent = 'Reported'; t.disabled = true; toast('Thanks. Items reported by 3 people are hidden.'); loadCommunity(); }
+    catch (e) { toast(e.message || 'Couldn’t send the report.'); } return; }
   if (t.id==='addHill'){ S.hillPick = {name:''}; openSheet({type:'addhill'}); return; }
   if ('cancelHill' in ds){ S.hillPick = null; S.hillLayer?.clearLayers(); mapMsg(); drawHills(); return; }
   if (t.id==='hlPick'){ S.hillPick.name = $('#hlName').value; S.hillPick.picking = true; S.hillPick.a = S.hillPick.b = null;
@@ -1120,21 +1165,39 @@ document.addEventListener('click', async e => {
   if (t.id==='hlSave'){
     const hp = S.hillPick; hp.name = $('#hlName').value.trim();
     if (!hp.name){ toast('Give the hill a name.'); return; }
-    if (S.mode==='demo'){ toast('Measuring hills needs the installed app.'); return; }
-    t.textContent = 'Finding route…';
+    if (S.mode==='demo'){ toast('Sharing hills needs the installed app.'); return; }
+    t.textContent = 'Finding route…'; t.disabled = true;
     try {
-      const r = await api('hillroute', {a:`${hp.a.lat},${hp.a.lon}`, b:`${hp.b.lat},${hp.b.lon}`}, 60000);
-      const hill = {id:'myh-'+Date.now(), name:hp.name, street:'', a:{...hp.a}, b:{...hp.b}, route:r};
-      S.myHills.unshift(hill); store.set('myhills', S.myHills); S.hillPick = null;
-      toast(r.downhillAll ? `Saved: downhill the whole way, ${r.grade}% average.` : `Saved. Heads up: the route climbs ${Math.round(r.climb)} m.`);
+      const hill = await post('addhill', {name:hp.name, a:`${hp.a.lat},${hp.a.lon}`, b:`${hp.b.lat},${hp.b.lon}`, token:S.ownerToken});
+      rememberMine(hill.id); S.community.hills.unshift(hill); S.hillPick = null; const r = hill.route;
+      toast(r.downhillAll ? `Shared: downhill the whole way, ${r.grade}% average.` : `Shared. Heads up: the route climbs ${Math.round(r.climb)} m.`);
       openSheet({type:'hill', id:hill.id}); drawHills(); renderDyn();
-    } catch { t.textContent = 'Find route and save'; toast('Couldn’t find a street route. Check that start and finish are 20 m to 3 km apart.'); }
+    } catch (e) {
+      t.disabled = false; t.textContent = 'Find route and save';
+      if (e.status === 503){ // storage not set up: keep it on this phone instead
+        try {
+          const r = await api('hillroute', {a:`${hp.a.lat},${hp.a.lon}`, b:`${hp.b.lat},${hp.b.lon}`}, 60000);
+          const hill = {id:'myh-'+Date.now(), name:hp.name, street:'', a:{...hp.a}, b:{...hp.b}, route:r};
+          S.myHills.unshift(hill); store.set('myhills', S.myHills); S.hillPick = null;
+          toast('Public sharing isn’t switched on yet, so this hill is saved on this phone only.'); openSheet({type:'hill', id:hill.id}); drawHills(); renderDyn();
+        } catch { toast('Couldn’t find a street route. Check that start and finish are 20 m to 3 km apart.'); }
+      } else toast(e.message && !/^HTTP/.test(e.message) ? e.message : 'Couldn’t save the hill. Try again in a moment.');
+    }
     return;
   }
   if (ds.openSpot){ openSheet({type:'spot', id:ds.openSpot}); return; }
   if (ds.mapSpot){ showOnMap({spot:ds.mapSpot}); return; }
-  if (ds.delSpot){ if (t.dataset.armed){ S.mySpots = S.mySpots.filter(x=>x.id!==ds.delSpot); store.set('myspots', S.mySpots); closeSheet(); renderDyn(); drawSpots(); toast('Spot deleted.'); }
-    else { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; } return; }
+  if (ds.delSpot){ if (!t.dataset.armed){ t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
+    const sp = spotById(ds.delSpot);
+    if (sp?.community){ try { await post('delete', {kind:'spot', id:sp.id, token:S.ownerToken}, 15000); S.community.spots = S.community.spots.filter(x=>x.id!==sp.id); } catch (e) { toast(e.message || 'Couldn’t delete.'); return; } }
+    else { S.mySpots = S.mySpots.filter(x=>x.id!==ds.delSpot); store.set('myspots', S.mySpots); }
+    closeSheet(); renderDyn(); drawSpots(); toast('Spot deleted.'); return; }
+  if (ds.shareSpot){ const sp = S.mySpots.find(x=>x.id===ds.shareSpot); if (!sp) return; t.disabled = true; t.textContent = 'Sharing…';
+    try { const pub = await post('addspot', {name:sp.name, type:sp.type, note:sp.note, lat:sp.lat, lon:sp.lon, token:S.ownerToken}, 20000);
+      rememberMine(pub.id); S.community.spots.unshift(pub); S.mySpots = S.mySpots.filter(x=>x.id!==sp.id); store.set('myspots', S.mySpots);
+      toast('Spot shared. Everyone can see it now.'); openSheet({type:'spot', id:pub.id}); renderDyn(); drawSpots();
+    } catch (e) { t.disabled = false; t.textContent = 'Share publicly'; toast(e.status===503 ? 'Public sharing isn’t switched on yet.' : (e.message || 'Couldn’t share.')); }
+    return; }
   if ('cancelPick' in ds){ S.pickSpot = false; mapMsg(); openSheet({type:'addspot'}); return; }
   if (t.id==='addSpot'){ S.spotDraft = null; openSheet({type:'addspot'}); return; }
   if (t.id==='spHere' || t.id==='spPick' || t.id==='spSave'){
@@ -1148,9 +1211,20 @@ document.addEventListener('click', async e => {
     }
     if (!dr.name.trim()){ toast('Give the spot a name.'); $('#spName').focus(); return; }
     if (dr.lat == null){ toast('Set the location first: use where you are or pick it on the map.'); return; }
-    const sp = {id:'my-'+Date.now(), name:dr.name.trim(), type:dr.type, note:dr.note.trim(), lat:dr.lat, lon:dr.lon};
-    S.mySpots.unshift(sp); store.set('myspots', S.mySpots); S.spotDraft = null;
-    toast('Spot saved.'); openSheet({type:'spot', id:sp.id}); renderDyn(); drawSpots(); return;
+    const draft = {name:dr.name.trim(), type:dr.type, note:dr.note.trim(), lat:dr.lat, lon:dr.lon};
+    if (S.mode==='demo'){ const sp = {id:'my-'+Date.now(), ...draft}; S.mySpots.unshift(sp); store.set('myspots', S.mySpots); S.spotDraft = null; toast('Saved on this phone (demo mode).'); openSheet({type:'spot', id:sp.id}); renderDyn(); drawSpots(); return; }
+    t.disabled = true; t.textContent = 'Sharing…';
+    try {
+      const sp = await post('addspot', {...draft, token:S.ownerToken}, 20000);
+      rememberMine(sp.id); S.community.spots.unshift(sp); S.spotDraft = null;
+      toast('Spot shared. Everyone can see it now.'); openSheet({type:'spot', id:sp.id});
+    } catch (e) {
+      t.disabled = false; t.textContent = 'Share spot';
+      if (e.status === 503){ const sp = {id:'my-'+Date.now(), ...draft}; S.mySpots.unshift(sp); store.set('myspots', S.mySpots); S.spotDraft = null;
+        toast('Public sharing isn’t switched on yet, so this spot is saved on this phone only.'); openSheet({type:'spot', id:sp.id}); }
+      else { toast(e.message && !/^HTTP/.test(e.message) ? e.message : 'Couldn’t share the spot. Try again in a moment.'); return; }
+    }
+    renderDyn(); drawSpots(); return;
   }
   if (ds.openLine){ openSheet({type:'line', id:ds.openLine}); return; }
   if (ds.dir){ S.sheet.dir = ds.dir; renderSheet(); return; }
@@ -1212,6 +1286,7 @@ async function boot(){
   renderTab(); refreshArrivals();
   setInterval(refreshArrivals, S.mode==='live' ? 60000 : 30000);
   setInterval(() => { renderDyn(); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet(); checkReminders(); if (S.tab==='map' && !document.hidden) loadVehicles(); }, 15000);
+  setInterval(() => { if ((S.tab==='spots' || S.tab==='map') && !document.hidden) loadCommunity(); }, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshArrivals(); });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
