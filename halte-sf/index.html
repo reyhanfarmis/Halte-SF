@@ -358,6 +358,16 @@ button.pc-r{padding:2px}
 .pc-line span{flex:1;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pc-line b{font:600 15px/1 var(--f-num);color:var(--accent);white-space:nowrap}
 .cpin.fixed{position:static;margin:0;width:30px;height:42px}
+.kind.knobbed{color:var(--bad);border:1.5px solid currentColor;border-radius:5px;padding:1px 5px;font-size:11px}
+.knob{background:var(--surface);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.knob.on{box-shadow:inset 4px 0 0 var(--bad)}
+.knob-t{display:flex;flex-direction:column;gap:2px}
+.knob-t b{font:700 20px/1.1 var(--f-display);text-transform:uppercase}
+.knob.on .knob-t b{color:var(--bad)}
+.knob-t span{font-size:13px;color:var(--muted)}
+.knob-b{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.knob-b .iconbtn{height:42px;font-size:14px}
+.spotpin.knobbed{background:#8A949B;opacity:.85}
 .me2{position:relative;display:block;width:20px;height:20px}
 .me2 .halo{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(46,110,214,.16)}
 .me2 .cone{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;transition:transform .2s linear}
@@ -709,7 +719,7 @@ function hillView(h){
   const start = r?.start || h.a;
   return {...h, name, r, start, startX, finishX};
 }
-const allHills = () => [...S.community.hills.map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...S.myHills.map(x=>({...x, mine:true, local:true})), ...S.hills].map(hillView);
+const allHills = () => [...arr(S.community.hills).map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...arr(S.myHills).map(x=>({...x, mine:true, local:true})), ...arr(S.hills)].filter(x => x && (x.a || x.route)).map(hillView).filter(h => h.start && isFinite(h.start.lat));
 const hillById = id => allHills().find(x=>x.id===id);
 function dhBadge(r){
   if (!r) return '';
@@ -764,14 +774,26 @@ async function loadSpots(){
   else { try { const sp = await api('spots', {}, 30000); S.spots = sp; store.set('spots', {t:Date.now(), spots:sp}); } catch {} }
   if (S.tab==='spots'){ renderDyn(); drawSpots(); }
 }
-const allSpots = () => [...S.community.spots.map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...S.mySpots.map(x=>({...x, mine:true, local:true})), ...S.spots];
+const arr = x => Array.isArray(x) ? x : [];
+const allSpots = () => [...arr(S.community.spots).map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...arr(S.mySpots).map(x=>({...x, mine:true, local:true})), ...arr(S.spots)].filter(x => x && isFinite(x.lat) && isFinite(x.lon));
 const spotById = id => allSpots().find(x=>x.id===id);
 function nearestStop(p){ let b=null; for (const s of S.stops){ const d = dist(p, s); if (!b || d < b.d) b = {...s, d}; } return b; }
+const statusOf = sp => (S.community.status || {})['spot:' + sp.id] || (S.localStatus || {})['spot:' + sp.id] || null;
+function agoDays(t){ if (!t) return ''; const m = Math.round((Date.now() - t)/60000); return m < 60 ? `${Math.max(1,m)} min ago` : m < 1440 ? `${Math.round(m/60)} h ago` : `${Math.round(m/1440)} days ago`; }
+function knobBlock(sp){
+  if (catOf(sp) === 'park') return '';
+  const st = statusOf(sp), k = st?.knobbed;
+  return `<div class="knob${k ? ' on' : ''}"><div class="knob-t"><b>${k ? 'Knobbed' : st ? 'Skateable' : 'Is it knobbed?'}</b>
+      <span>${st?.at ? `Last report ${agoDays(st.at)}` + (st.knobbedVotes + st.clearVotes > 1 ? ` · ${st.knobbedVotes} said knobbed, ${st.clearVotes} said skateable` : '') : 'No reports yet. Been there lately?'}</span></div>
+    <div class="knob-b"><button class="iconbtn${k ? '' : ' ghost'}" data-knob="knobbed" data-knob-id="${esc(sp.id)}">Knobbed</button>
+      <button class="iconbtn${st && !k ? '' : ' ghost'}" data-knob="clear" data-knob-id="${esc(sp.id)}">Still skateable</button></div></div>`;
+}
 const catOf = sp => sp.cat || ((sp.community || sp.local) ? (sp.type==='Park' ? 'park' : 'spot') : 'park');
 function kindLabel(sp){
   const c = catOf(sp), who = sp.mine ? (sp.local ? 'Only on this phone' : 'Added by you') : sp.community ? 'Shared by a skater' : '';
   const t = c==='park' ? 'Skatepark' : 'Street spot' + (sp.type && sp.type!=='Other' ? ' · ' + esc(sp.type) : '');
-  return `<span class="kind ${c}"><i></i>${t}</span>${who ? ` <span class="kind who">${who}</span>` : ''}`;
+  const kn = c !== 'park' && statusOf(sp)?.knobbed ? ' <span class="kind knobbed">Knobbed</span>' : '';
+  return `<span class="kind ${c}"><i></i>${t}</span>${kn}${who ? ` <span class="kind who">${who}</span>` : ''}`;
 }
 function kindLabelOld(sp){
   if (sp.community) return `<span class="kind${sp.mine?' mine':''}"><i></i>${sp.mine?'Added by you':'Community spot'}${sp.type?' · '+esc(sp.type):''}</span>`;
@@ -924,7 +946,7 @@ function renderDyn(){
       : loaded.length < stops.length ? stops.slice(0,6).map(s=>stopCard(s)).join('')
       : `<div class="note">No departures within ${S.set.range>=1000?(S.set.range/1000)+' km':S.set.range+' m'} in the next 90 minutes. Try a bigger range in Settings.</div>`;
   }
-  else if (S.tab==='spots' && S.spotSeg==='hills'){
+  else if (S.tab==='spots' && S.spotSeg==='hills') try {
     const ref = S.browse.spots || S.here;
     const all = allHills().map(h => ({...h, d:dist(ref, h.start)})).sort((a,b)=>a.d-b.d);
     all.forEach(loadHillRoute);
@@ -934,7 +956,7 @@ function renderDyn(){
     d.innerHTML = all.length ? (shared.length ? `<div class="h">Shared by skaters · ${shared.length}</div>` + shared.map(hcard).join('') : `<div class="note">No shared hills yet. Tap <b>+ Add</b> to share your line.</div>`)
         + (more.length ? `<div class="h">More SF hills</div>` + more.slice(0, 30).map(hcard).join('') : '')
       : `<div class="note">Loading SF hills… this can take a few seconds the first time.</div>`;
-  }
+  } catch (err) { d.innerHTML = `<div class="note">Couldn’t show the hills list (${esc(err.message)}). Pull down and reopen the app; if it keeps happening, send me this message.</div>`; }
   else if (S.tab==='spots'){
     const q = S.spotQ.trim().toLowerCase();
     const f = S.spotFilter || 'all';
@@ -1551,7 +1573,7 @@ function drawSpots(){
     const foc = sp.id===S.mapSpot;
     L.marker([sp.lat, sp.lon], {
       icon: L.divIcon({className:'', iconSize:[20,20], iconAnchor:[10,10],
-        html:`<span class="spotpin ${catOf(sp)}${foc?' focus':''}"></span>${foc?`<span class="plabel">${esc(sp.name)}</span>`:''}`}),
+        html:`<span class="spotpin ${catOf(sp)}${catOf(sp)!=='park' && statusOf(sp)?.knobbed ? ' knobbed' : ''}${foc?' focus':''}"></span>${foc?`<span class="plabel">${esc(sp.name)}</span>`:''}`}),
       title: sp.name, alt: sp.name, zIndexOffset: 1500,
     }).on('click', ev => { L.DomEvent.stopPropagation(ev); openSheet({type:'spot', id:sp.id}); }).addTo(S.spotLayer);
   }
@@ -1667,6 +1689,7 @@ function renderSheet(){
           ${sp.community && !sp.mine?`<button class="iconbtn ghost" data-report="spot:${esc(sp.id)}">Report</button>`:''}
         </div>
         ${sp.note?`<div class="note">${esc(sp.note)}</div>`:''}
+        ${knobBlock(sp)}
         <div class="h">Get there by Muni or BART</div>
         ${trips}
         ${plan && !plan.demo && !plan.error ? `<div class="credit">From ${esc(S.here.label==='you'?'your location':S.here.label)} · one-seat rides only · updated ${hhmm(plan.updated)}</div>` : ''}
@@ -1811,7 +1834,7 @@ document.addEventListener('click', async e => {
   if (t.id==='compassBtn'){ tapCompass(); return; }
   if (t.id==='scrim' || 'close' in ds){ closeSheet(); return; }
   if (ds.openStop){ openSheet({type:'stop', id:ds.openStop}); return; }
-  if (ds.seg){ S.spotSeg = ds.seg; const k = $('#skTop'); if (k) k.innerHTML = skateTop(); renderDyn(); drawSpots(); drawHills(); return; }
+  if (ds.seg){ S.spotSeg = ds.seg; const k = $('#skTop'); if (k) k.innerHTML = skateTop(); const dd = $('#dyn'); if (dd) dd.innerHTML = ''; renderDyn(); drawSpots(); drawHills(); return; }
   if (t.id==='termsAgree'){ if (!$('#termsChk').checked){ toast('Tick the box to confirm you’ve read the terms.'); return; }
     S.termsOk = true; store.set('terms', TERMS_VERSION); store.set('termsAt', new Date().toISOString()); renderTab(); return; }
   if (t.id==='openTerms'){ openSheet({type:'terms'}); return; }
@@ -1875,6 +1898,12 @@ document.addEventListener('click', async e => {
     return; }
   if ('cancelPick' in ds){ S.pickSpot = false; mapMsg(); openSheet({type:'addspot'}); return; }
   if (t.id==='addSpot'){ S.spotDraft = null; openSheet({type:'addspot'}); return; }
+  if (ds.knob){ const id = ds.knobId, status = ds.knob;
+    if (S.mode==='demo'){ (S.localStatus ||= {})['spot:'+id] = {knobbed:status==='knobbed', at:Date.now(), knobbedVotes:+(status==='knobbed'), clearVotes:+(status==='clear')}; }
+    else { t.disabled = true;
+      try { const r = await post('status', {kind:'spot', id, status, token:S.ownerToken}, 15000); (S.community.status ||= {})[r.key] = r; }
+      catch (e) { t.disabled = false; toast(e.status===503 ? 'Reports need the community storage switched on.' : (e.message || 'Couldn’t send that.')); return; } }
+    toast(status==='knobbed' ? 'Thanks. Marked as knobbed for everyone.' : 'Thanks. Marked as skateable.'); renderSheet(); renderDyn(); drawSpots(); return; }
   if ('addWhat' in ds){ openSheet({type:'addwhat'}); return; }
   if (ds.addKind && ds.addKind!=='hill' && S.sheet?.type==='addspot' && S.spotDraft){ const dr = S.spotDraft;
     dr.name = $('#spName')?.value ?? dr.name; dr.note = $('#spNote')?.value ?? dr.note; dr.cat = ds.addKind; dr.type = dr.cat==='park' ? 'Park' : (dr.type==='Park' ? 'Ledge' : dr.type); renderSheet(); return; }
