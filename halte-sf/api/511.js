@@ -430,6 +430,108 @@ async function routeHill(start, finish) {
   return best;
 }
 
+// ---------- community spots & hills (public, stored in Upstash Redis) ----------
+// Set up: Vercel → Storage / Marketplace → Upstash for Redis → connect to this project.
+// Vercel then adds KV_REST_API_URL + KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL + _TOKEN).
+// Optional: ADMIN_TOKEN lets the app owner delete anything.
+
+const crypto = require("crypto");
+const RURL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const RTOK = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const ADMIN = process.env.ADMIN_TOKEN || "";
+const sha = (x) => crypto.createHash("sha256").update(String(x)).digest("hex");
+
+async function redis(...cmd) {
+  if (!RURL || !RTOK) throw Object.assign(new Error("Community storage isn't set up yet."), { status: 503 });
+  const r = await fetch(RURL, { method: "POST", headers: { authorization: "Bearer " + RTOK, "content-type": "application/json" }, body: JSON.stringify(cmd) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) throw Object.assign(new Error("Storage error: " + (j.error || r.status)), { status: 502 });
+  return j.result;
+}
+
+const inSF = (p) => p && p.lat > 37.6 && p.lat < 37.86 && p.lon > -122.56 && p.lon < -122.33;
+const cleanText = (t, max) => String(t || "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+const SPOT_TYPES_OK = ["Ledge", "Stairs", "Rail", "Gap", "Bank", "Manual pad", "Park", "Other"];
+
+async function rateLimit(ip, kind, max) {
+  const key = `rl:${kind}:${sha(ip).slice(0, 16)}:${Math.floor(Date.now() / 3600000)}`;
+  const n = await redis("INCR", key);
+  if (n === 1) await redis("EXPIRE", key, 3700);
+  if (n > max) throw Object.assign(new Error("Too many additions from this connection. Try again in an hour."), { status: 429 });
+}
+
+function publicView(item) {
+  const { owner, reporters, ...rest } = item;
+  return rest;
+}
+
+async function listCommunity() {
+  return cached("community", 20, async () => {
+    const [sp, hl] = await Promise.all([redis("HVALS", "c:spots"), redis("HVALS", "c:hills")]);
+    const parse = (arr) => (arr || []).map((x) => { try { return JSON.parse(x); } catch { return null; } })
+      .filter((x) => x && !x.hidden).map(publicView);
+    return { spots: parse(sp), hills: parse(hl) };
+  });
+}
+const bust = () => mem.delete("community");
+
+async function addSpot(body, ip) {
+  const name = cleanText(body.name, 60), note = cleanText(body.note, 300);
+  const type = SPOT_TYPES_OK.includes(body.type) ? body.type : "Other";
+  const p = { lat: +body.lat, lon: +body.lon };
+  if (name.length < 2) throw Object.assign(new Error("Give the spot a name."), { status: 400 });
+  if (!inSF(p)) throw Object.assign(new Error("Spots must be in San Francisco."), { status: 400 });
+  if (!body.token || String(body.token).length < 16) throw Object.assign(new Error("Missing device token."), { status: 400 });
+  await rateLimit(ip, "add", 10);
+  const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "spot", name, type, note, lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), created: new Date().toISOString(), owner: sha(body.token), reporters: [] };
+  await redis("HSET", "c:spots", item.id, JSON.stringify(item));
+  bust();
+  return publicView(item);
+}
+
+async function addHill(body, ip) {
+  const name = cleanText(body.name, 60);
+  const a = parsePoint(body.a), b = parsePoint(body.b);
+  if (name.length < 2) throw Object.assign(new Error("Give the hill a name."), { status: 400 });
+  if (!inSF(a) || !inSF(b)) throw Object.assign(new Error("Hills must be in San Francisco."), { status: 400 });
+  if (metres(a, b) < 20 || metres(a, b) > 3000) throw Object.assign(new Error("Start and finish must be 20 m to 3 km apart."), { status: 400 });
+  if (!body.token || String(body.token).length < 16) throw Object.assign(new Error("Missing device token."), { status: 400 });
+  await rateLimit(ip, "add", 10);
+  const route = await routeHill(a, b); // measured on the server, never trusted from the phone
+  const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "hill", name, street: "", a, b, route, created: new Date().toISOString(), owner: sha(body.token), reporters: [] };
+  await redis("HSET", "c:hills", item.id, JSON.stringify(item));
+  bust();
+  return publicView(item);
+}
+
+async function getItem(kind, id) {
+  const raw = await redis("HGET", kind === "hill" ? "c:hills" : "c:spots", String(id));
+  if (!raw) throw Object.assign(new Error("Not found."), { status: 404 });
+  return JSON.parse(raw);
+}
+
+async function deleteItem(body) {
+  const kind = body.kind === "hill" ? "hill" : "spot";
+  const item = await getItem(kind, body.id);
+  const ok = (body.token && sha(body.token) === item.owner) || (ADMIN && body.token === ADMIN);
+  if (!ok) throw Object.assign(new Error("Only the person who added this can delete it."), { status: 403 });
+  await redis("HDEL", kind === "hill" ? "c:hills" : "c:spots", item.id);
+  bust();
+  return { deleted: item.id };
+}
+
+async function reportItem(body, ip) {
+  const kind = body.kind === "hill" ? "hill" : "spot";
+  const item = await getItem(kind, body.id);
+  const who = sha(ip).slice(0, 16);
+  item.reporters = item.reporters || [];
+  if (!item.reporters.includes(who)) item.reporters.push(who);
+  if (item.reporters.length >= 3) item.hidden = true; // hidden after 3 different people report it
+  await redis("HSET", kind === "hill" ? "c:hills" : "c:spots", item.id, JSON.stringify(item));
+  bust();
+  return { reported: true, hidden: !!item.hidden };
+}
+
 // ---------- trip planner: one direct Muni ride, using live predictions ----------
 
 function metres(a, b) {
@@ -486,9 +588,20 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", maxAge ? `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` : "no-store");
     res.status(code).send(JSON.stringify(body));
   };
-  if (!KEY && !["spots", "hills", "hillroute"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
+  if (!KEY && !["spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
 
   try {
+    if (req.method === "POST") {
+      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const ip = String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0].trim();
+      switch (q.ep) {
+        case "addspot": return send(200, await addSpot(body, ip));
+        case "addhill": return send(200, await addHill(body, ip));
+        case "delete": return send(200, await deleteItem(body));
+        case "report": return send(200, await reportItem(body, ip));
+        default: return send(400, { error: "unknown ep" });
+      }
+    }
     switch (q.ep) {
       case "ping":
         return send(200, { ok: true, agency: AGENCY });
@@ -529,6 +642,8 @@ module.exports = async function handler(req, res) {
         const key = "hr|" + q.a + "|" + q.b;
         return send(200, await cached(key, 7 * 86400, () => routeHill(a, b)), 86400);
       }
+      case "community":
+        return send(200, await listCommunity(), 15);
       case "spots":
         return send(200, await cached("spots", 86400, fetchSkateSpots), 3600);
       case "plan": {
@@ -543,6 +658,6 @@ module.exports = async function handler(req, res) {
         return send(400, { error: "unknown ep" });
     }
   } catch (e) {
-    return send(e.status === 429 ? 429 : 502, { error: e.message });
+    return send([400, 403, 404, 422, 429, 503].includes(e.status) ? e.status : 502, { error: e.message });
   }
 };
