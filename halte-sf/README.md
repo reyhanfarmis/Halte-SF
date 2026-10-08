@@ -6,7 +6,8 @@ A web app you can install on your phone's home screen (PWA). Features:
 - **Map**: every stop around you (tap a dot to see arrivals), "Show on map" from any stop, and route lines with live vehicles
 - **Favorites**: save as many stops as you like (shown at the top of Nearby)
 - **Spots**: SF skateparks from OpenStreetMap plus street spots anyone can add (public, shared with everyone), each with live one-seat Muni or BART directions from where you are
-- **Hills**: a start and finish for each hill, a route that follows the streets between them, an elevation profile sampled every ~25 m (USGS lidar) that checks the route really goes downhill, live directions to the start, and hills anyone can add (tap start, then finish; shared publicly)
+- **Hills**: drop up to 12 pins along the line you actually bomb; the route follows bikeable streets through every pin. An elevation profile sampled every ~25 m (USGS lidar) checks that it finishes lower than it starts, that any uphill bits are short enough to walk (8 m or less), and that it ends downhill. Live directions to the top, and hills anyone can add (shared publicly)
+- **Ride time estimate**: for each hill, a physics model (gravity, rolling friction for 99a wheels, air drag, today's wind from Open-Meteo, your weight and top speed from Settings) estimates the ride down, the walk back up, one full lap, and the free-roll top speed
 - **Terms & safety**: a skate-at-your-own-risk agreement users must accept before Spots and Hills
 - **Routes**: every Muni route (Metro, bus, cable car) and BART line, stops in each direction, and where each vehicle is heading
 - **Alerts**: Muni and BART service alerts
@@ -54,13 +55,20 @@ A default 511 key is limited to roughly 60 requests per hour. The proxy in `api/
 
 ## Map notes
 
-Street maps use OpenStreetMap's free standard tiles, which are fine for personal or small-scale use. For lots of users, switch to a tile service such as MapTiler or Stadia Maps (just change the URL in the `initMap` function).
+The map uses MapLibre GL with MapTiler's vector styles (light and dark).
+
+1. Create a free key at maptiler.com (Account → API keys).
+2. In Vercel → project → Settings → Environment Variables, add `MAPTILER_KEY` with that key, then redeploy.
+3. Recommended: in MapTiler, restrict the key to your domain (e.g. `halte-sf.vercel.app`), since the key is visible to the browser.
+
+Without `MAPTILER_KEY`, the app falls back to OpenStreetMap's standard raster tiles.
 
 ## Data sources for Spots and Hills
 
 - Skateparks and street names: © OpenStreetMap contributors (ODbL), loaded from the Overpass API and cached for a day.
-- Street routes for hills: FOSSGIS OSRM foot routing (routing.openstreetmap.de), © OpenStreetMap contributors.
+- Street routes for hills: FOSSGIS OSRM bike routing (routing.openstreetmap.de), © OpenStreetMap contributors.
 - Elevation: USGS 3DEP Elevation Point Query Service (falls back to Open-Meteo).
+- Wind for ride estimates: Open-Meteo current conditions, cached 15 minutes. Ride times are rough estimates, not safety advice.
 - Spots and hills people add are public and stored in Upstash Redis (see below). Each phone gets a private random token so only the person who added something (or you, with ADMIN_TOKEN) can delete it. Anything reported by 3 different people is hidden automatically. Adding is limited to 10 per hour per connection, and only inside San Francisco.
 - The terms in the app are a starting template, not legal advice. Have a lawyer review them if the app goes public or makes money.
 

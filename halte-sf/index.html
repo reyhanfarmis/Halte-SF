@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <style>
 /* Layout: one-column phone app — sticky header, list of stop cards, fixed bottom tab bar, bottom sheet for details */
 :root{
@@ -189,6 +189,29 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 .leaflet-bar a.leaflet-disabled{color:var(--muted);opacity:.5}
 .leaflet-control-attribution{background:color-mix(in oklab,var(--surface) 80%,transparent);color:var(--muted);font-size:10px;padding:1px 6px;border-top-left-radius:6px}
 .leaflet-control-attribution a{color:var(--muted)}
+.maplibregl-map{position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;font:inherit}
+.maplibregl-canvas-container,.maplibregl-canvas{position:absolute;left:0;top:0}
+.maplibregl-canvas{outline:none}
+.maplibregl-canvas-container.maplibregl-interactive{cursor:grab}
+.maplibregl-canvas-container.maplibregl-touch-drag-pan,.maplibregl-canvas-container.maplibregl-touch-zoom-rotate{touch-action:pan-x pan-y}
+.maplibregl-canvas-container.maplibregl-touch-drag-pan.maplibregl-touch-zoom-rotate{touch-action:none}
+.maplibregl-marker{position:absolute;top:0;left:0;will-change:transform}
+.maplibregl-ctrl-top-left,.maplibregl-ctrl-top-right,.maplibregl-ctrl-bottom-left,.maplibregl-ctrl-bottom-right{position:absolute;pointer-events:none;z-index:2}
+.maplibregl-ctrl-top-left{top:0;left:0}.maplibregl-ctrl-top-right{top:0;right:0}.maplibregl-ctrl-bottom-left{bottom:0;left:0}.maplibregl-ctrl-bottom-right{bottom:0;right:0}
+.maplibregl-ctrl{pointer-events:auto;clear:both}
+.maplibregl-ctrl-top-left .maplibregl-ctrl{margin:10px 0 0 10px;float:left}
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl,.maplibregl-ctrl-bottom-left .maplibregl-ctrl{margin:0;float:right}
+.maplibregl-ctrl-group{background:var(--surface);border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.maplibregl-ctrl-group button{display:block;width:38px;height:38px;border:0;border-bottom:1px solid var(--rule);background:var(--surface);color:var(--fg);cursor:pointer;padding:0;position:relative}
+.maplibregl-ctrl-group button:last-child{border-bottom:0}
+.maplibregl-ctrl-icon{display:block}
+.maplibregl-ctrl-zoom-in::after{content:"+";font:500 22px/38px var(--f-body)}
+.maplibregl-ctrl-zoom-out::after{content:"−";font:500 22px/38px var(--f-body)}
+.maplibregl-ctrl-compass::after{content:"↑";font:600 16px/38px var(--f-body)}
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon{display:none}
+.maplibregl-ctrl-attrib{background:color-mix(in oklab,var(--surface) 82%,transparent);color:var(--muted);font-size:10px;padding:1px 6px;border-top-left-radius:6px}
+.maplibregl-ctrl-attrib a{color:var(--muted);text-decoration:none}
+.maplibregl-ctrl-attrib-button{display:none}
 .pin{display:block;width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .pin.fav{background:var(--warn)}
 .pin.focus{width:24px;height:24px;margin:-3px;box-shadow:0 0 0 6px color-mix(in oklab,var(--accent) 30%,transparent),0 1px 4px rgba(0,0,0,.4)}
@@ -227,6 +250,10 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 .profile .cap{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .hend{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font:700 12px/1 var(--f-body);color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45)}
 .hend.s{background:#14874D}.hend.f{background:#13202A}
+.hend.v{width:16px;height:16px;font-size:10px;background:#5B3FD9}
+.checks{margin:0;padding:0 14px 12px;list-style:none;display:flex;flex-direction:column;gap:5px;font-size:13.5px}
+.checks .ok{color:var(--live)}.checks .no{color:var(--warn)}
+.pickbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .route-steps{font-size:13.5px;color:var(--muted);padding:0 14px 12px}
 .terms{background:var(--surface);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;font-size:14px}
 .terms h3{margin:6px 0 0;font-size:15px}
@@ -406,7 +433,7 @@ const S = {
   fav: store.get('fav', []),
   spots: [], mySpots: store.get('myspots', []), hills: [], myHills: store.get('myhills', []), spotSeg: 'spots', hillPick: null, termsOk: store.get('terms', '') === TERMS_VERSION, plans: {}, spotQ: '', pickSpot: false, spotDraft: null,
   rem: store.get('rem', []),
-  set: Object.assign({theme:'system', hue:228, lead:3, range:1000}, store.get('settings', {})),
+  set: Object.assign({theme:'system', hue:228, lead:3, range:1000, weightLb:193, maxMph:25, stance:'stand'}, store.get('settings', {})),
   sheet:null, lineFilter:'all', lineData:{},
   map:null, mapFocus:null, mapLine:null, mapVeh:null, vehicles:[], vehUpdated:null,
 };
@@ -512,6 +539,94 @@ function loadHillRoute(h){ // measured street route + elevation profile, one hil
     if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawHills(); if (S.sheet?.type==='hill' && S.sheet.id===h.id) openSheet(S.sheet);
   });
 }
+/* ---------- ride-time estimate: gravity, rolling friction, air drag, wind, walking ---------- */
+const PHYS = {
+  g: 9.81,
+  crr: 0.02,          // rolling resistance, 99a urethane on SF asphalt (smooth concrete ≈ 0.012, rough chipseal ≈ 0.03)
+  rho: 1.2,           // air density at sea level, kg/m³
+  cda: {stand:0.55, tuck:0.35}, // drag area: relaxed standing rider vs low tuck, m²
+  windAtRider: 0.6,   // wind measured at 10 m is ~60% as strong at body height between SF buildings
+  pushMs: 3.0,        // pushing pace on the flat, ≈ 6.7 mph
+  remountMs: 1.5,     // below this you're pushing or walking, not rolling
+};
+const toblerKmh = slope => 6 * Math.exp(-3.5 * Math.abs(slope + 0.05)); // hiking pace for a given slope (rise/run)
+function bearingDeg(a, b){
+  const r = x => x*Math.PI/180, y = Math.sin(r(b[1]-a[1]))*Math.cos(r(b[0])),
+        x = Math.cos(r(a[0]))*Math.sin(r(b[0])) - Math.sin(r(a[0]))*Math.cos(r(b[0]))*Math.cos(r(b[1]-a[1]));
+  return (Math.atan2(y, x)*180/Math.PI + 360) % 360;
+}
+function pathBearingAt(path, d){ // direction of travel at distance d along the route
+  let acc = 0;
+  for (let k = 1; k < path.length; k++){
+    const seg = dist({lat:path[k-1][0], lon:path[k-1][1]}, {lat:path[k][0], lon:path[k][1]});
+    if (acc + seg >= d || k === path.length-1) return bearingDeg(path[k-1], path[k]);
+    acc += seg;
+  }
+  return 0;
+}
+function simulateRide(r, wind, o){
+  const m = o.weightLb * 0.4536, vmax = o.maxMph === Infinity ? Infinity : o.maxMph * 0.44704, cda = PHYS.cda[o.stance] || PHYS.cda.stand;
+  const P = r.profile, path = r.path || [];
+  const windMs = (wind?.speed || 0) * PHYS.windAtRider;
+  let v = 0, t = 0, top = 0, walkedM = 0, pushedM = 0, walkT = 0;
+  for (let k = 1; k < P.length; k++){
+    const ds = P[k].d - P[k-1].d; if (ds <= 0) continue;
+    const slope = (P[k].e - P[k-1].e) / ds, th = Math.atan(slope);
+    const travel = path.length > 1 ? pathBearingAt(path, (P[k].d + P[k-1].d)/2) : 0;
+    const head = wind ? windMs * Math.cos((wind.from - travel) * Math.PI/180) : 0; // + = headwind
+    for (let x = 0; x < ds; x += 1){
+      const dx = Math.min(1, ds - x);
+      const va = v + head;
+      const a = -PHYS.g*Math.sin(th) - PHYS.crr*PHYS.g*Math.cos(th) - 0.5*PHYS.rho*cda*va*Math.abs(va)/m;
+      let v2 = v*v + 2*a*dx;
+      let nv = v2 > 0 ? Math.sqrt(v2) : 0;
+      if (nv > vmax) nv = vmax;                       // rider scrubs speed to stay under their limit
+      if (nv < PHYS.remountMs){
+        if (slope > 0.03){ const w = toblerKmh(slope)/3.6; t += dx/w; walkT += dx/w; walkedM += dx; nv = 0; } // walk the climb
+        else { t += dx/PHYS.pushMs; pushedM += dx; nv = PHYS.pushMs; }                                      // push on the flat
+      } else t += dx / ((v + nv)/2 || nv);
+      v = nv; top = Math.max(top, v);
+    }
+  }
+  return { t, top, walkedM, pushedM, walkT };
+}
+function walkBackUp(r){ // Tobler hiking time from the finish back to the start along the same street
+  let t = 0; const P = r.profile;
+  for (let k = P.length-1; k > 0; k--){ const ds = P[k].d - P[k-1].d; if (ds <= 0) continue; const slope = (P[k-1].e - P[k].e)/ds; t += ds / (toblerKmh(slope)/3.6); }
+  return t;
+}
+const fmtDur = sec => sec < 60 ? `${Math.round(sec)} s` : sec < 3600 ? `${Math.floor(sec/60)} min ${String(Math.round(sec%60)).padStart(2,'0')} s` : `${Math.floor(sec/3600)} h ${Math.round((sec%3600)/60)} min`;
+const compass = deg => ['N','NE','E','SE','S','SW','W','NW'][Math.round(((deg%360)+360)%360/45)%8];
+S.wind = {};
+async function loadWind(h){
+  const at = h.start; if (!at || S.mode!=='live') return null;
+  const k = at.lat.toFixed(2)+','+at.lon.toFixed(2);
+  if (S.wind[k]) return S.wind[k];
+  try { S.wind[k] = await api('wind', {at:`${at.lat.toFixed(4)},${at.lon.toFixed(4)}`}, 8000); } catch { S.wind[k] = null; }
+  if (S.sheet?.type==='hill') renderSheet();
+  return S.wind[k];
+}
+function rideCard(h){
+  const r = h.r; if (!r?.profile?.length) return '';
+  const k = h.start.lat.toFixed(2)+','+h.start.lon.toFixed(2), wind = S.wind[k];
+  if (wind === undefined) loadWind(h);
+  const o = {weightLb:S.set.weightLb, maxMph:S.set.maxMph, stance:S.set.stance};
+  const ride = simulateRide(r, wind, o), free = simulateRide(r, wind, {...o, maxMph:Infinity}), back = walkBackUp(r);
+  const mph = ms => Math.round(ms*2.23694);
+  let windTxt = 'Wind not included (couldn’t load weather).';
+  if (wind){ const travel = bearingDeg(r.path[0], r.path[r.path.length-1]), head = Math.cos((wind.from - travel)*Math.PI/180);
+    windTxt = `Wind now: ${mph(wind.speed)} mph from the ${compass(wind.from)}${wind.gusts ? `, gusts ${mph(wind.gusts)} mph` : ''} — mostly a ${Math.abs(head) < 0.4 ? 'crosswind' : head > 0 ? 'headwind' : 'tailwind'} on this line.`; }
+  else if (wind === undefined && S.mode==='live') windTxt = 'Loading wind…';
+  return `<div class="card ride"><div class="h" style="margin:12px 14px 2px">Estimated time</div>
+    <div class="hstats"><div><b>${fmtDur(ride.t)}</b>ride down</div><div><b>${fmtDur(back)}</b>walk back up</div><div><b>${fmtDur(ride.t+back)}</b>one lap</div></div>
+    <ul class="checks">
+      <li>Holding your speed under ${S.set.maxMph} mph${ride.walkedM ? `, walking ${Math.round(ride.walkedM)} m of uphill (${fmtDur(ride.walkT)})` : ''}${ride.pushedM > 15 ? `, pushing ${Math.round(ride.pushedM)} m of flat` : ''}.</li>
+      <li class="${mph(free.top) > S.set.maxMph + 5 ? 'no' : 'ok'}">${mph(free.top) > S.set.maxMph + 5 ? '⚠' : '✓'} With no braking at all, gravity would take you to about <b>${mph(free.top)} mph</b>.</li>
+      <li>${esc(windTxt)}</li>
+    </ul>
+    <div class="route-steps">Physics estimate: ${S.set.weightLb} lb rider + board, ${S.set.stance==='tuck'?'tucked':'standing'}, 99a wheels on SF asphalt (rolling friction 0.02), air drag, and the elevation every 25 m. Change your weight and speed limit in Settings. Real times vary with traffic, stops and road surface.</div></div>`;
+}
+
 function hillView(h){
   const r = h.route || S.hillRoutes[h.id] || null;
   const startX = r ? (r.swapped ? h.b?.cross : h.a?.cross) : h.a?.cross, finishX = r ? (r.swapped ? h.a?.cross : h.b?.cross) : h.b?.cross;
@@ -521,7 +636,20 @@ function hillView(h){
 }
 const allHills = () => [...S.community.hills.map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...S.myHills.map(x=>({...x, mine:true, local:true})), ...S.hills].map(hillView);
 const hillById = id => allHills().find(x=>x.id===id);
-function dhBadge(r){ return !r ? '' : r.downhillAll ? `<span class="dh">↘ Downhill the whole way</span>` : `<span class="dh up">↗ Climbs ${Math.round(r.climb)} m on the way</span>`; }
+function dhBadge(r){
+  if (!r) return '';
+  if (r.downhillAll) return `<span class="dh">↘ Downhill the whole way</span>`;
+  if (r.walkable !== false && r.endsDownhill !== false) return `<span class="dh">↘ Downhill · short walkable climbs</span>`;
+  return `<span class="dh up">↗ Climbs ${Math.round(r.maxClimb ?? r.climb)} m in one stretch</span>`;
+}
+function hillChecks(r){
+  const row = (ok, yes, no) => `<li class="${ok?'ok':'no'}">${ok?'✓':'⚠'} ${ok?yes:no}</li>`;
+  return `<ul class="checks">
+    ${row(r.drop > 0, `Finishes ${Math.round(r.drop)} m lower than it starts`, 'Finishes higher than it starts')}
+    ${r.walkable === undefined ? '' : row(r.walkable, r.climbs.length ? `Uphill bits are short enough to walk (biggest ${Math.round(r.maxClimb)} m)` : 'No uphill bits', `Has a ${Math.round(r.maxClimb)} m climb in one stretch`)}
+    ${r.endsDownhill === undefined ? '' : row(r.endsDownhill, `Last stretch runs downhill (${Math.round(r.finalDrop)} m)`, 'Last stretch isn’t downhill')}
+  </ul>`;
+}
 function profileSvg(r){
   const P = r.profile, W = 320, H = 110, pad = 6;
   const maxE = Math.max(...P.map(p=>p.e)), minE = Math.min(...P.map(p=>p.e)), span = Math.max(1, maxE-minE), len = P[P.length-1].d || 1;
@@ -742,6 +870,16 @@ function renderSettings(){
     <select id="range">${[[500,'500 m (about 4 blocks)'],[1000,'1 km (about 8 blocks)'],[1500,'1.5 km (about 12 blocks)']].map(([v,t])=>`<option value="${v}"${S.set.range===v?' selected':''}>${t}</option>`).join('')}</select>
     <span class="hint">Nearby shows every route once, at its closest stop.</span>
   </div>
+  <div class="h">Hill time estimates</div>
+  <div class="set">
+    <label for="weightLb">Your weight with your board (lb)</label>
+    <input id="weightLb" type="number" min="60" max="400" step="1" value="${S.set.weightLb}" style="height:42px;border-radius:10px;border:1px solid var(--rule);background:var(--surface);color:var(--fg);padding:0 10px;font:inherit">
+    <label for="maxMph">Top speed you’re comfortable holding</label>
+    <select id="maxMph">${[15,20,25,30,35,40].map(n=>`<option value="${n}"${S.set.maxMph===n?' selected':''}>${n} mph</option>`).join('')}</select>
+    <span class="lbl">How you ride</span>
+    <div class="seg">${[['stand','Standing'],['tuck','Tucked']].map(([k,t])=>`<button data-stance="${k}" aria-pressed="${S.set.stance===k}">${t}</button>`).join('')}</div>
+    <span class="hint">Default weight is an average US adult plus a board.</span>
+  </div>
   <div class="h">Reminders</div>
   <div class="set">
     <label for="lead">Remind me before the vehicle arrives</label>
@@ -770,6 +908,111 @@ function renderSettings(){
   </div>
   <div class="credit">Halte SF · Transit data: 511.org · Not an official SFMTA app</div>`;
 }
+
+/* ================= MAP ENGINE (MapLibre, with a tiny Leaflet-style wrapper) ================= */
+// Zoom levels below use the classic web-map scale (MapLibre's zoom + 1), so thresholds like 15/16 keep their meaning.
+S.mapKey = undefined;
+async function getMapKey(){
+  if (S.mapKey !== undefined) return S.mapKey;
+  if (S.mode !== 'live'){ S.mapKey = ''; return ''; }
+  try { S.mapKey = (await api('config', {}, 5000)).maptilerKey || ''; } catch { S.mapKey = ''; }
+  return S.mapKey;
+}
+function mapStyle(key){
+  if (key) return `https://api.maptiler.com/maps/${isDark() ? 'streets-v2-dark' : 'streets-v2'}/style.json?key=${encodeURIComponent(key)}`;
+  return { version:8, sources:{ osm:{ type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256, maxzoom:19,
+    attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' } },
+    layers:[{ id:'osm', type:'raster', source:'osm' }] };
+}
+const LM = (() => {
+  const toLngLat = ll => [ll[1], ll[0]];
+  function bounds(pts){
+    let s=90, w=180, n=-90, e=-180;
+    for (const [la,lo] of pts){ s=Math.min(s,la); n=Math.max(n,la); w=Math.min(w,lo); e=Math.max(e,lo); }
+    return mk(s,w,n,e);
+  }
+  function mk(s,w,n,e){ return { s,w,n,e,
+    pad(f){ const dy=(n-s)*f, dx=(e-w)*f; return mk(s-dy,w-dx,n+dy,e+dx); },
+    contains([la,lo]){ return la>=s && la<=n && lo>=w && lo<=e; },
+    toML(){ return [[w,s],[e,n]]; } }; }
+  let lineSeq = 0;
+  function group(){
+    const g = { markers:[], lines:[], map:null, id:'g'+(++lineSeq),
+      addTo(m){ g.map = m; m._groups.push(g); return g; },
+      clearLayers(){ g.markers.forEach(x=>x.remove()); g.markers = []; g.lines = []; g.map && g.map._syncLines(g); },
+    };
+    return g;
+  }
+  function divIcon(o){ return o; }
+  function marker(ll, o={}){
+    const ic = o.icon || {html:'', iconSize:[10,10], iconAnchor:[5,5]};
+    const el = document.createElement('div');
+    el.innerHTML = ic.html; el.style.width = ic.iconSize[0]+'px'; el.style.height = ic.iconSize[1]+'px';
+    if (o.title) el.title = o.title;
+    if (o.zIndexOffset) el.style.zIndex = String(o.zIndexOffset);
+    if (o.interactive === false) el.style.pointerEvents = 'none';
+    const mm = new maplibregl.Marker({element:el, anchor:'top-left', offset:[-ic.iconAnchor[0], -ic.iconAnchor[1]]}).setLngLat(toLngLat(ll));
+    const api = {
+      on(ev, fn){ if (ev==='click') el.addEventListener('click', e => { e.stopPropagation(); fn(e); }); return api; },
+      addTo(t){ if (t.markers){ t.markers.push(mm); if (t.map) mm.addTo(t.map._ml); } else mm.addTo(t._ml); return api; },
+      remove(){ mm.remove(); },
+    };
+    return api;
+  }
+  function circleMarker(ll, o={}){
+    const r = o.radius || 6;
+    return marker(ll, {icon:{html:`<span style="display:block;width:${2*r}px;height:${2*r}px;border-radius:50%;border:${o.weight||2}px solid ${o.color||'#333'};background:${o.color||'#333'}99;box-sizing:border-box"></span>`, iconSize:[2*r,2*r], iconAnchor:[r,r]}, interactive:false});
+  }
+  function polyline(pts, o={}){
+    const ln = { pts, o, click:null,
+      on(ev, fn){ if (ev==='click') ln.click = fn; return ln; },
+      addTo(g){ g.lines.push(ln); g.map && g.map._syncLines(g); return ln; } };
+    return ln;
+  }
+  function map(id){
+    const el = document.getElementById(id);
+    const ml = new maplibregl.Map({ container:el, style:mapStyle(S.mapKey), center:[S.here.lon, S.here.lat], zoom:15,
+      attributionControl:{compact:false, customAttribution:'Data 511.org'}, dragRotate:true, pitchWithRotate:true, maxPitch:60 });
+    ml.addControl(new maplibregl.NavigationControl({showCompass:true, visualizePitch:true}), 'top-left');
+    const w = { _ml:ml, _groups:[], _ready:false, _clickFns:[], _lineHits:[],
+      setView(ll, z){ ml.jumpTo({center:toLngLat(ll), zoom:(z||ml.getZoom()+1)-1}); return w; },
+      fitBounds(b, o={}){ const pad = Array.isArray(o.padding) ? o.padding[0] : (o.padding||30);
+        ml.fitBounds(b.toML(), {padding:pad, maxZoom:(o.maxZoom||18)-1, duration:0}); return w; },
+      getZoom(){ return ml.getZoom()+1; },
+      getCenter(){ const c = ml.getCenter(); return {lat:c.lat, lng:c.lng}; },
+      getBounds(){ const b = ml.getBounds(); return mk(b.getSouth(), b.getWest(), b.getNorth(), b.getEast()); },
+      on(ev, fn){ if (ev==='click') w._clickFns.push(fn); else ml.on(ev, fn); return w; },
+      remove(){ ml.remove(); },
+      attributionControl:{ setPrefix(){} },
+      _syncLines(g){
+        if (!w._ready) return;
+        const feats = g.lines.map((ln,i) => ({ type:'Feature', properties:{ i, color:ln.o.color||'#333', width:ln.o.weight||4, opacity:ln.o.opacity ?? 1, dashed:!!ln.o.dashArray },
+          geometry:{ type:'LineString', coordinates:ln.pts.map(toLngLat) } }));
+        const src = ml.getSource(g.id), data = {type:'FeatureCollection', features:feats};
+        if (src) src.setData(data);
+        else {
+          ml.addSource(g.id, {type:'geojson', data});
+          const paint = {'line-color':['get','color'], 'line-width':['get','width'], 'line-opacity':['get','opacity']};
+          ml.addLayer({id:g.id+'-solid', type:'line', source:g.id, filter:['!',['get','dashed']], layout:{'line-cap':'round','line-join':'round'}, paint});
+          ml.addLayer({id:g.id+'-dash', type:'line', source:g.id, filter:['get','dashed'], layout:{'line-join':'round'}, paint:{...paint, 'line-dasharray':[1.2,1.6]}});
+        }
+      },
+    };
+    ml.on('load', () => { w._ready = true; w._groups.forEach(g => w._syncLines(g)); });
+    ml.on('click', e => {
+      const layers = w._groups.filter(g=>g.lines.some(l=>l.click) && ml.getLayer(g.id+'-solid')).flatMap(g=>[g.id+'-solid', g.id+'-dash']);
+      const hit = layers.length ? ml.queryRenderedFeatures([[e.point.x-8,e.point.y-8],[e.point.x+8,e.point.y+8]], {layers}) : [];
+      if (hit.length){ const g = w._groups.find(x=>hit[0].layer.id.startsWith(x.id+'-')); const ln = g?.lines[hit[0].properties.i]; if (ln?.click){ ln.click(e); return; } }
+      const ev = {latlng:{lat:e.lngLat.lat, lng:e.lngLat.lng}};
+      w._clickFns.forEach(fn => fn(ev));
+    });
+    let fails = 0;
+    ml.on('error', () => { if (++fails === 4){ $('#mapwrap')?.classList.add('notiles'); mapMsg(); } });
+    return w;
+  }
+  return { map, layerGroup:group, marker, divIcon, polyline, circleMarker, latLngBounds:bounds, DomEvent:{ stopPropagation(e){ e?.stopPropagation?.(); } } };
+})();
+const L = LM; // map code below uses L.map / L.marker / L.polyline …
 
 /* ================= MAP ================= */
 const isDark = () => { const t = document.documentElement.getAttribute('data-theme'); return t ? t==='dark' : matchMedia('(prefers-color-scheme: dark)').matches; };
@@ -806,7 +1049,9 @@ async function loadVehicles(){
 function mapMsg(){
   const top = $('#maptop'); if (!top) return;
   const parts = [];
-  if (S.hillPick?.picking) parts.push(`<div class="mapmsg"><b>Tap the ${S.hillPick.a?'finish (bottom)':'start (top)'} of the hill.</b> <button class="vc-btn" data-cancel-hill style="margin-left:6px">Cancel</button></div>`);
+  if (S.hillPick?.picking){ const n = S.hillPick.pts.length;
+    parts.push(`<div class="mapmsg"><b>${n ? `${n} pin${n>1?'s':''}. Tap along your line; your last pin is the finish.` : 'Tap the start (top) of the hill.'}</b>
+      <div class="pickbar">${n ? '<button class="vc-btn" data-undo-pin>Undo</button>' : ''}${n >= 2 ? '<button class="vc-btn" data-done-pins>Done</button>' : ''}<button class="vc-btn" data-cancel-hill>Cancel</button></div></div>`); }
   if (S.pickSpot) parts.push(`<div class="mapmsg"><b>Tap the map where the spot is.</b> <button class="vc-btn" data-cancel-pick style="margin-left:6px">Cancel</button></div>`);
   const v = selVeh();
   if (v){
@@ -826,19 +1071,17 @@ function mapMsg(){
     parts.push(`<div class="mapmsg">Zoom in to see stops.</div>`);
   top.innerHTML = parts.join('');
 }
-function initMap(){
-  if (!window.L){ $('#map').innerHTML = '<div class="note" style="margin:12px">The map couldn’t load. Check your connection and open this tab again.</div>'; return; }
+async function initMap(){
+  if (!window.maplibregl){ $('#map').innerHTML = '<div class="note" style="margin:12px">The map couldn’t load. Check your connection and open this tab again.</div>'; return; }
+  await getMapKey();
+  if (S.tab !== 'map' || !$('#map') || S.map) return;
   const focus = S.mapFocus && stopById(S.mapFocus);
   const v0 = selVeh();
   const m = L.map('map', {zoomControl:true, attributionControl:true})
     .setView(v0?.lat!=null ? [v0.lat, v0.lon] : focus ? [focus.lat, focus.lon] : [S.here.lat, S.here.lon], v0 || focus ? 16 : 16);
   m.attributionControl.setPrefix(false);
   S.map = m;
-  let fails = 0;
-  $('#mapwrap')?.classList.toggle('dark-tiles', isDark());
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom:19, attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · Data 511.org',
-  }).on('tileerror', () => { if (++fails === 2){ $('#mapwrap')?.classList.add('notiles'); mapMsg(); } }).addTo(m);
+  $('#mapwrap')?.classList.toggle('dark-tiles', isDark() && !S.mapKey); // darken plain OSM tiles; MapTiler has a real dark style
   S.stopLayer = L.layerGroup().addTo(m);
   S.lineLayer = L.layerGroup().addTo(m);
   S.hillLayer = L.layerGroup().addTo(m);
@@ -849,8 +1092,8 @@ function initMap(){
   m.on('click', ev => {
     if (S.hillPick && S.hillPick.picking){
       const pt = {lat:+ev.latlng.lat.toFixed(6), lon:+ev.latlng.lng.toFixed(6)};
-      if (!S.hillPick.a){ S.hillPick.a = pt; L.marker([pt.lat, pt.lon], {icon:L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11], html:'<span class="hend s">S</span>'}), interactive:false}).addTo(S.hillLayer); mapMsg(); return; }
-      S.hillPick.b = pt; S.hillPick.picking = false; mapMsg(); openSheet({type:'addhill'}); return;
+      if (S.hillPick.pts.length >= 12){ toast('12 pins is the most. Tap Done.'); return; }
+      S.hillPick.pts.push(pt); drawPickedPins(); mapMsg(); return;
     }
     if (S.pickSpot){ S.pickSpot = false; Object.assign(S.spotDraft, {lat:+ev.latlng.lat.toFixed(6), lon:+ev.latlng.lng.toFixed(6)}); openSheet({type:'addspot'}); mapMsg(); return; }
     if (S.mapVeh){ S.mapVeh = null; drawVehicles(); mapMsg(); }
@@ -874,6 +1117,17 @@ function drawStops(){
       title: s.name, alt: s.name, zIndexOffset: foc ? 1000 : fav ? 500 : 0,
     }).on('click', () => openSheet({type:'stop', id:s.id})).addTo(S.stopLayer);
   }
+}
+function drawPickedPins(){
+  if (!S.hillLayer) return;
+  S.hillLayer.clearLayers();
+  const P = S.hillPick?.pts || [];
+  if (P.length > 1) L.polyline(P.map(p=>[p.lat,p.lon]), {color:'#5B3FD9', weight:4, opacity:.8, dashArray:'6 8'}).addTo(S.hillLayer);
+  P.forEach((p,k) => {
+    const first = k===0, last = k===P.length-1 && P.length>1;
+    L.marker([p.lat,p.lon], {icon:L.divIcon({className:'', iconSize:first?[22,22]:[16,16], iconAnchor:first?[11,11]:[8,8],
+      html: first ? '<span class="hend s">S</span>' : last ? '<span class="hend v" style="background:#13202A">F</span>' : `<span class="hend v">${k}</span>`}), interactive:false, zIndexOffset:5000}).addTo(S.hillLayer);
+  });
 }
 function drawHills(){
   if (!S.map || !S.hillLayer) return;
@@ -1029,8 +1283,10 @@ function renderSheet(){
         : '<div class="note">No one-seat ride to the start in the next 90 minutes. For trips with a transfer, use Google Maps.</div>');
     const body = !r ? (S.hillRoutes[h.id]===null ? '<div class="note">Couldn’t measure this route right now. Try again later.</div>' : '<div class="note">Measuring the street route and elevation…</div>')
       : `<div class="card" style="padding-top:12px"><div class="hstats"><div><b>${r.grade}%</b>avg grade</div><div><b>${r.steepest}%</b>steepest</div><div><b>${Math.round(r.drop)} m</b>drop</div></div>
-          <div class="route-steps">${r.length} m along ${esc((r.streets||[]).join(' → ') || 'the street')}. ${r.downhillAll ? 'Every part of this route goes down or stays level.' : `This route climbs ${Math.round(r.climb)} m in ${r.climbs.length} place${r.climbs.length>1?'s':''} (shaded below). It was the most downhill street route found.`}${r.swapped && h.mine ? ' Start and finish were swapped so the route runs downhill.' : ''}</div></div>
-        ${profileSvg(r)}`;
+          <div class="route-steps">${(r.length/1000).toFixed(r.length<1000?2:1)} km along ${esc((r.streets||[]).join(' → ') || 'the street')}${r.via ? `, through ${r.via} pin${r.via>1?'s':''} along the way` : ''}.${r.climbs.length ? ' Uphill bits are shaded in the chart.' : ''}${r.swapped && h.mine ? ' Start and finish were swapped so the route runs downhill.' : ''}</div>
+          ${hillChecks(r)}</div>
+        ${profileSvg(r)}
+        ${rideCard(h)}`;
     el.innerHTML = `<div class="sheet-h"><h2>${esc(h.name)}<div class="meta">${r ? dhBadge(r)+' · ' : ''}start is ${fmtDist(dist(S.here, h.start))}</div></h2>
         <button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
@@ -1051,8 +1307,12 @@ function renderSheet(){
     el.innerHTML = `<div class="sheet-h"><h2>Add a hill<div class="meta">Public: everyone using the app will see it</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
         <div class="field"><label for="hlName">Name</label><input id="hlName" value="${esc(hp.name||'')}" placeholder="e.g. Clipper St from Douglass" maxlength="60"></div>
-        <div class="note">${hp.a && hp.b ? '✓ Start and finish set. Saving finds the street route between them and checks the elevation along it.' : 'Next you’ll tap the <b>start</b> (top) and then the <b>finish</b> (bottom) on the map. The route follows the streets between them.'}</div>
-        <button class="iconbtn" id="${hp.a && hp.b ? 'hlSave' : 'hlPick'}" style="width:100%">${hp.a && hp.b ? 'Find route and save' : 'Pick start and finish on the map'}</button>
+        ${(hp.pts||[]).length >= 2
+          ? `<div class="note">✓ ${hp.pts.length} pins set: start, ${hp.pts.length-2} along the way, finish. Saving follows the streets through every pin in order and checks the elevation every 25 m.</div>
+             <button class="iconbtn" id="hlSave" style="width:100%">Find route and save</button>
+             <button class="iconbtn ghost" id="hlPick" style="width:100%">Redo pins</button>`
+          : `<div class="note">On the map, tap the <b>start</b> at the top, then tap points along the streets you actually ride, then the <b>finish</b>. More pins keep the route on your line. Small uphill bits are fine as long as you can walk them.</div>
+             <button class="iconbtn" id="hlPick" style="width:100%">Pin the line on the map</button>`}
       </div>`;
   } else if (s.type==='terms'){
     el.innerHTML = `<div class="sheet-h"><h2>Terms & safety<div class="meta">${S.termsOk?'Accepted':'Not accepted yet'} · version ${TERMS_VERSION}</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
@@ -1150,7 +1410,7 @@ document.addEventListener('click', async e => {
     else { S.myHills = S.myHills.filter(x=>x.id!==ds.delHill); store.set('myhills', S.myHills); }
     closeSheet(); renderDyn(); drawHills(); toast('Hill deleted.'); return; }
   if (ds.shareHill){ const h = S.myHills.find(x=>x.id===ds.shareHill); if (!h) return; t.disabled = true; t.textContent = 'Sharing…';
-    try { const pub = await post('addhill', {name:h.name, a:`${h.a.lat},${h.a.lon}`, b:`${h.b.lat},${h.b.lon}`, token:S.ownerToken});
+    try { const pub = await post('addhill', {name:h.name, pts:(h.pts || [h.a, h.b]).map(p=>`${p.lat},${p.lon}`), token:S.ownerToken}, 90000);
       rememberMine(pub.id); S.community.hills.unshift(pub); S.myHills = S.myHills.filter(x=>x.id!==h.id); store.set('myhills', S.myHills);
       toast('Hill shared. Everyone can see it now.'); openSheet({type:'hill', id:pub.id}); renderDyn(); drawHills();
     } catch (e) { t.disabled = false; t.textContent = 'Share publicly'; toast(e.status===503 ? 'Public sharing isn’t switched on yet.' : (e.message || 'Couldn’t share.')); }
@@ -1158,9 +1418,11 @@ document.addEventListener('click', async e => {
   if (ds.report){ const [kind, id] = ds.report.split(':'); if (!t.dataset.armed){ t.dataset.armed = '1'; t.textContent = 'Tap again to report'; return; }
     try { await post('report', {kind, id}, 15000); t.textContent = 'Reported'; t.disabled = true; toast('Thanks. Items reported by 3 people are hidden.'); loadCommunity(); }
     catch (e) { toast(e.message || 'Couldn’t send the report.'); } return; }
-  if (t.id==='addHill'){ S.hillPick = {name:''}; openSheet({type:'addhill'}); return; }
+  if (t.id==='addHill'){ S.hillPick = {name:'', pts:[]}; openSheet({type:'addhill'}); return; }
+  if ('undoPin' in ds){ S.hillPick?.pts.pop(); drawPickedPins(); mapMsg(); return; }
+  if ('donePins' in ds){ if (S.hillPick?.pts.length >= 2){ S.hillPick.picking = false; mapMsg(); openSheet({type:'addhill'}); } return; }
   if ('cancelHill' in ds){ S.hillPick = null; S.hillLayer?.clearLayers(); mapMsg(); drawHills(); return; }
-  if (t.id==='hlPick'){ S.hillPick.name = $('#hlName').value; S.hillPick.picking = true; S.hillPick.a = S.hillPick.b = null;
+  if (t.id==='hlPick'){ S.hillPick.name = $('#hlName').value; S.hillPick.picking = true; S.hillPick.pts = [];
     closeSheet(); S.mapLine = S.mapVeh = S.mapFocus = S.mapSpot = S.mapHill = null; S.tab = 'map'; renderTab(); window.scrollTo(0,0); S.hillLayer?.clearLayers(); mapMsg(); return; }
   if (t.id==='hlSave'){
     const hp = S.hillPick; hp.name = $('#hlName').value.trim();
@@ -1168,19 +1430,19 @@ document.addEventListener('click', async e => {
     if (S.mode==='demo'){ toast('Sharing hills needs the installed app.'); return; }
     t.textContent = 'Finding route…'; t.disabled = true;
     try {
-      const hill = await post('addhill', {name:hp.name, a:`${hp.a.lat},${hp.a.lon}`, b:`${hp.b.lat},${hp.b.lon}`, token:S.ownerToken});
+      const hill = await post('addhill', {name:hp.name, pts:hp.pts.map(p=>`${p.lat},${p.lon}`), token:S.ownerToken}, 90000);
       rememberMine(hill.id); S.community.hills.unshift(hill); S.hillPick = null; const r = hill.route;
-      toast(r.downhillAll ? `Shared: downhill the whole way, ${r.grade}% average.` : `Shared. Heads up: the route climbs ${Math.round(r.climb)} m.`);
+      toast(r.walkable && r.endsDownhill ? `Shared: ${(r.length/1000).toFixed(1)} km, ${r.grade}% average, ends downhill.` : `Shared. Heads up: ${!r.walkable ? `it climbs ${Math.round(r.maxClimb)} m in one stretch` : 'the last stretch isn’t downhill'}.`);
       openSheet({type:'hill', id:hill.id}); drawHills(); renderDyn();
     } catch (e) {
       t.disabled = false; t.textContent = 'Find route and save';
       if (e.status === 503){ // storage not set up: keep it on this phone instead
         try {
-          const r = await api('hillroute', {a:`${hp.a.lat},${hp.a.lon}`, b:`${hp.b.lat},${hp.b.lon}`}, 60000);
-          const hill = {id:'myh-'+Date.now(), name:hp.name, street:'', a:{...hp.a}, b:{...hp.b}, route:r};
+          const r = await api('hillroute', {pts:hp.pts.map(p=>`${p.lat},${p.lon}`).join(';')}, 90000);
+          const hill = {id:'myh-'+Date.now(), name:hp.name, street:'', a:{...hp.pts[0]}, b:{...hp.pts[hp.pts.length-1]}, pts:hp.pts, route:r};
           S.myHills.unshift(hill); store.set('myhills', S.myHills); S.hillPick = null;
           toast('Public sharing isn’t switched on yet, so this hill is saved on this phone only.'); openSheet({type:'hill', id:hill.id}); drawHills(); renderDyn();
-        } catch { toast('Couldn’t find a street route. Check that start and finish are 20 m to 3 km apart.'); }
+        } catch (e2) { toast(e2.message && !/^HTTP/.test(e2.message) ? e2.message : 'Couldn’t find a street route through those pins.'); }
       } else toast(e.message && !/^HTTP/.test(e.message) ? e.message : 'Couldn’t save the hill. Try again in a moment.');
     }
     return;
@@ -1247,6 +1509,7 @@ document.addEventListener('click', async e => {
     }
     store.set('rem', S.rem); renderSheet(); return;
   }
+  if (ds.stance){ S.set.stance = ds.stance; saveSet(); renderTab(); return; }
   if (ds.themeSet){ S.set.theme = ds.themeSet; saveSet(); renderTab(); return; }
   if (ds.hue){ S.set.hue = +ds.hue; saveSet(); renderTab(); return; }
   if (t.id==='reset'){ if (t.dataset.armed){ ['fav','rem','base','here','settings','myspots','myhills','spots','hills','hills2','hillroutes','terms','termsAt'].forEach(k=>{try{localStorage.removeItem('halte.'+k)}catch{}}); location.reload(); }
@@ -1275,7 +1538,9 @@ document.addEventListener('input', e => {
   if (S.spotDraft && e.target.id==='spName') S.spotDraft.name = e.target.value;
   if (S.spotDraft && e.target.id==='spNote') S.spotDraft.note = e.target.value;
 });
-document.addEventListener('change', e => { if (e.target.id==='range'){ S.set.range = +e.target.value; saveSet(); toast('Nearby range updated.'); refreshArrivals(); } if (S.spotDraft && e.target.id==='spType') S.spotDraft.type = e.target.value; if (e.target.id==='lead'){ S.set.lead = +e.target.value; saveSet(); toast(`Reminders: ${S.set.lead} min before arrival.`); } });
+document.addEventListener('change', e => {
+  if (e.target.id==='weightLb'){ const w = Math.round(+e.target.value); if (w >= 60 && w <= 400){ S.set.weightLb = w; saveSet(); toast(`Hill estimates use ${w} lb.`); } else toast('Enter a weight between 60 and 400 lb.'); }
+  if (e.target.id==='maxMph'){ S.set.maxMph = +e.target.value; saveSet(); toast(`Hill estimates hold speed under ${S.set.maxMph} mph.`); } if (e.target.id==='range'){ S.set.range = +e.target.value; saveSet(); toast('Nearby range updated.'); refreshArrivals(); } if (S.spotDraft && e.target.id==='spType') S.spotDraft.type = e.target.value; if (e.target.id==='lead'){ S.set.lead = +e.target.value; saveSet(); toast(`Reminders: ${S.set.lead} min before arrival.`); } });
 document.addEventListener('keydown', e => { if (e.key==='Escape' && S.sheet) closeSheet(); });
 
 /* ================= START ================= */
