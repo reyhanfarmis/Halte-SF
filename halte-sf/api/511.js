@@ -517,10 +517,101 @@ async function listCommunity() {
     const status = {};
     const flat = Array.isArray(st) ? st : Object.entries(st || {}).flat();
     for (let i = 0; i + 1 < flat.length; i += 2) { try { status[flat[i]] = summarizeStatus(JSON.parse(flat[i + 1])); } catch {} }
-    return { spots: parse(sp), hills: parse(hl), status };
+    const users = await usersMap();
+    const named = (x) => (x.uid && users[x.uid]?.name ? { ...x, by: users[x.uid].name } : x);
+    return { spots: parse(sp).map(named), hills: parse(hl).map(named), status };
   });
 }
-const bust = () => mem.delete("community");
+const bust = () => { mem.delete("community"); mem.delete("leaders"); };
+// ---------- accounts: Sign in with Google (we keep only an anonymous id and the username people pick) ----------
+const GCID = process.env.GOOGLE_CLIENT_ID || "";
+let gKeys = null, gKeysAt = 0;
+const b64u = (x) => Buffer.from(String(x).replace(/-/g, "+").replace(/_/g, "/"), "base64");
+const err = (status, msg) => Object.assign(new Error(msg), { status });
+async function googleKeys() {
+  if (gKeys && Date.now() - gKeysAt < 3600000) return gKeys;
+  const r = await fetch("https://www.googleapis.com/oauth2/v3/certs");
+  if (!r.ok) throw err(502, "Couldn't reach Google to check the sign-in.");
+  gKeys = (await r.json()).keys || []; gKeysAt = Date.now();
+  return gKeys;
+}
+async function verifyGoogle(idToken) {
+  const [h, p, sg] = String(idToken || "").split(".");
+  if (!h || !p || !sg) throw err(401, "Sign-in failed. Try again.");
+  const head = JSON.parse(b64u(h).toString()), pay = JSON.parse(b64u(p).toString());
+  const jwk = (await googleKeys()).find((k) => k.kid === head.kid);
+  if (!jwk || head.alg !== "RS256") throw err(401, "Sign-in failed. Try again.");
+  const ok = crypto.verify("RSA-SHA256", Buffer.from(h + "." + p), crypto.createPublicKey({ key: jwk, format: "jwk" }), b64u(sg));
+  if (!ok || pay.aud !== GCID || !["accounts.google.com", "https://accounts.google.com"].includes(pay.iss) || pay.exp * 1000 < Date.now())
+    throw err(401, "Sign-in failed. Try again.");
+  return pay;
+}
+async function getUser(uid) { try { return JSON.parse((await redis("HGET", "c:users", uid)) || "null"); } catch { return null; } }
+async function userFrom(session) {
+  if (!session || String(session).length < 20) return null;
+  const uid = await redis("GET", "sess:" + sha(session));
+  return uid ? getUser(uid) : null;
+}
+async function googleLogin(body, req) {
+  const cookies = Object.fromEntries(String(req.headers.cookie || "").split(";").map((x) => x.trim().split("=")).filter((x) => x[0]));
+  if (!body.g_csrf_token || cookies.g_csrf_token !== body.g_csrf_token) throw err(400, "Sign-in check failed. Try again.");
+  const pay = await verifyGoogle(body.credential);
+  const uid = "u" + sha("google:" + pay.sub).slice(0, 16);
+  let u = await getUser(uid);
+  if (!u) { u = { uid, name: null, created: new Date().toISOString() }; await redis("HSET", "c:users", uid, JSON.stringify(u)); }
+  const tok = crypto.randomBytes(24).toString("hex");
+  await redis("SET", "sess:" + sha(tok), uid, "EX", 180 * 86400);
+  return { tok, isNew: !u.name };
+}
+const NAME_RE = /^[A-Za-z0-9_.]{3,20}$/;
+const BAD_NAMES = /(fuck|shit|cunt|nigg|fag|bitch|whore|slut|rape|nazi|hitler|porn|admin|halte|moderator)/i;
+async function setName(body) {
+  const u = await userFrom(body.session);
+  if (!u) throw err(401, "Sign in again.");
+  const name = String(body.name || "").trim();
+  if (!NAME_RE.test(name)) throw err(400, "Use 3–20 letters, numbers, _ or .");
+  if (BAD_NAMES.test(name)) throw err(400, "Pick a different name.");
+  const low = name.toLowerCase(), taken = await redis("HGET", "c:unames", low);
+  if (taken && taken !== u.uid) throw err(409, "That name is taken.");
+  if (u.name && u.name.toLowerCase() !== low) await redis("HDEL", "c:unames", u.name.toLowerCase());
+  await redis("HSET", "c:unames", low, u.uid);
+  u.name = name; await redis("HSET", "c:users", u.uid, JSON.stringify(u));
+  bust();
+  return { uid: u.uid, name };
+}
+async function whoAmI(body) {
+  const u = await userFrom(body.session);
+  if (!u) throw err(401, "Signed out.");
+  return { uid: u.uid, name: u.name };
+}
+async function logout(body) { if (body.session) await redis("DEL", "sess:" + sha(body.session)); return { ok: true }; }
+async function poster(body) {
+  if (!GCID) return null; // accounts not switched on yet: posting stays anonymous
+  const u = await userFrom(body.session);
+  if (!u || !u.name) throw err(401, "Sign in to add spots, skateparks and hills.");
+  return u;
+}
+async function usersMap() {
+  const flat = await redis("HGETALL", "c:users").catch(() => []);
+  const arr = Array.isArray(flat) ? flat : Object.entries(flat || {}).flat(), m = {};
+  for (let i = 0; i + 1 < arr.length; i += 2) { try { m[arr[i]] = JSON.parse(arr[i + 1]); } catch {} }
+  return m;
+}
+async function leaderboard() {
+  return cached("leaders", 60, async () => {
+    const [sp, hl, st, users] = await Promise.all([redis("HVALS", "c:spots"), redis("HVALS", "c:hills"), redis("HGETALL", "c:status").catch(() => []), usersMap()]);
+    const score = {};
+    const add = (uid, k) => { if (!uid || !users[uid]?.name) return; (score[uid] ||= { spots: 0, parks: 0, hills: 0, reports: 0 })[k]++; };
+    for (const x of sp || []) { try { const i = JSON.parse(x); if (!i.hidden) add(i.uid, i.cat === "park" ? "parks" : "spots"); } catch {} }
+    for (const x of hl || []) { try { const i = JSON.parse(x); if (!i.hidden) add(i.uid, "hills"); } catch {} }
+    const flat = Array.isArray(st) ? st : Object.entries(st || {}).flat();
+    for (let i = 0; i + 1 < flat.length; i += 2) { try { for (const v of JSON.parse(flat[i + 1]).votes || []) add(v.u, "reports"); } catch {} }
+    const list = Object.entries(score).map(([uid, c]) => ({ uid, name: users[uid].name, ...c, points: Math.round((c.spots + c.parks + 2 * c.hills + 0.2 * c.reports) * 10) / 10 }))
+      .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name)).slice(0, 100).map((x, k) => ({ rank: k + 1, ...x }));
+    return { updated: new Date().toISOString(), leaders: list };
+  });
+}
+
 
 // "Is it knobbed?" reports: the latest report from any phone decides; one vote per phone per spot
 function summarizeStatus(cur) {
@@ -538,14 +629,15 @@ async function setStatus(body, ip) {
   const key = kind + ":" + id;
   let cur = null; try { cur = JSON.parse((await redis("HGET", "c:status", key)) || "null"); } catch {}
   cur = cur && Array.isArray(cur.votes) ? cur : { votes: [] };
-  const who = sha(body.token).slice(0, 16);
-  cur.votes = cur.votes.filter((x) => x.w !== who).concat({ w: who, s: st, at: Date.now() }).slice(-25);
+  const who = sha(body.token).slice(0, 16), user = await userFrom(body.session).catch(() => null);
+  cur.votes = cur.votes.filter((x) => x.w !== who && (!user || x.u !== user.uid)).concat({ w: who, u: user ? user.uid : undefined, s: st, at: Date.now() }).slice(-25);
   await redis("HSET", "c:status", key, JSON.stringify(cur));
   bust();
   return { key, ...summarizeStatus(cur) };
 }
 
 async function addSpot(body, ip) {
+  const user = await poster(body);
   const name = cleanText(body.name, 60), note = cleanText(body.note, 300);
   const cat = body.cat === "park" ? "park" : "spot"; // skatepark or street spot
   const type = cat === "park" ? "Park" : SPOT_TYPES_OK.includes(body.type) ? body.type : "Other";
@@ -554,13 +646,14 @@ async function addSpot(body, ip) {
   if (!inSF(p)) throw Object.assign(new Error("Spots must be in San Francisco."), { status: 400 });
   if (!body.token || String(body.token).length < 16) throw Object.assign(new Error("Missing device token."), { status: 400 });
   await rateLimit(ip, "add", 10);
-  const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "spot", cat, name, type, note, lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), created: new Date().toISOString(), owner: sha(body.token), reporters: [] };
+  const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "spot", cat, name, type, note, lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), created: new Date().toISOString(), owner: sha(body.token), reporters: [], uid: user ? user.uid : undefined };
   await redis("HSET", "c:spots", item.id, JSON.stringify(item));
   bust();
   return publicView(item);
 }
 
 async function addHill(body, ip) {
+  const user = await poster(body);
   const name = cleanText(body.name, 60);
   const pts = body.pts ? parsePoints(body.pts) : [parsePoint(body.a), parsePoint(body.b)];
   if (name.length < 2) throw Object.assign(new Error("Give the hill a name."), { status: 400 });
@@ -570,7 +663,7 @@ async function addHill(body, ip) {
   await rateLimit(ip, "add", 10);
   const route = await routeHillThrough(pts); // measured on the server, never trusted from the phone
   const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "hill", name, street: "", a: pts[0], b: pts[pts.length - 1], pts, route,
-    created: new Date().toISOString(), owner: sha(body.token), reporters: [] };
+    created: new Date().toISOString(), owner: sha(body.token), reporters: [], uid: user ? user.uid : undefined };
   await redis("HSET", "c:hills", item.id, JSON.stringify(item));
   bust();
   return publicView(item);
@@ -585,7 +678,8 @@ async function getItem(kind, id) {
 async function deleteItem(body) {
   const kind = body.kind === "hill" ? "hill" : "spot";
   const item = await getItem(kind, body.id);
-  const ok = (body.token && sha(body.token) === item.owner) || (ADMIN && body.token === ADMIN);
+  const user = item.uid ? await userFrom(body.session).catch(() => null) : null;
+  const ok = (body.token && sha(body.token) === item.owner) || (ADMIN && body.token === ADMIN) || (user && user.uid === item.uid);
   if (!ok) throw Object.assign(new Error("Only the person who added this can delete it."), { status: 403 });
   await redis("HDEL", kind === "hill" ? "c:hills" : "c:spots", item.id);
   bust();
@@ -660,11 +754,12 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", maxAge ? `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` : "no-store");
     res.status(code).send(JSON.stringify(body));
   };
-  if (!KEY && !["config", "wind", "fog", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report", "status"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
+  if (!KEY && !["config", "wind", "fog", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report", "status", "glogin", "setname", "me", "logout", "leaders"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
 
   try {
     if (req.method === "POST") {
-      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      let body = req.body || {};
+      if (typeof body === "string") body = /urlencoded/.test(String(req.headers["content-type"] || "")) ? Object.fromEntries(new URLSearchParams(body)) : JSON.parse(body || "{}");
       const ip = String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0].trim();
       switch (q.ep) {
         case "addspot": return send(200, await addSpot(body, ip));
@@ -672,6 +767,16 @@ module.exports = async function handler(req, res) {
         case "delete": return send(200, await deleteItem(body));
         case "report": return send(200, await reportItem(body, ip));
         case "status": return send(200, await setStatus(body, ip));
+        case "glogin": {
+          // Google sends the person back here after they pick their account; we hand the app a session and go home
+          let to = "/";
+          try { const r = await googleLogin(body, req); to = `/#s=${r.tok}&n=${r.isNew ? 1 : 0}`; }
+          catch (e) { to = "/#loginerr=" + encodeURIComponent(e.message || "Sign-in failed"); }
+          res.setHeader("Location", to); res.setHeader("Cache-Control", "no-store"); res.status(303); return res.send("");
+        }
+        case "setname": return send(200, await setName(body));
+        case "me": return send(200, await whoAmI(body));
+        case "logout": return send(200, await logout(body));
         default: return send(400, { error: "unknown ep" });
       }
     }
@@ -762,7 +867,9 @@ module.exports = async function handler(req, res) {
       }
       case "config":
         // MapTiler keys are meant to be used in the browser; restrict yours to this site's address in MapTiler.
-        return send(200, { maptilerKey: process.env.MAPTILER_KEY || "" }, 300);
+        return send(200, { maptilerKey: process.env.MAPTILER_KEY || "", googleClientId: GCID }, 300);
+      case "leaders":
+        return send(200, await leaderboard(), 30);
       case "community":
         return send(200, await listCommunity(), 15);
       case "spots":
