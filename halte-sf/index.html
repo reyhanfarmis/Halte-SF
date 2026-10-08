@@ -159,6 +159,7 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 /* --- map (core Leaflet CSS, rewritten with tokens) --- */
 .mapwrap{position:relative;isolation:isolate;height:calc(100dvh - 150px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:340px;border-radius:var(--r);overflow:hidden;background:var(--surface-2)}
 #map{position:absolute;inset:0;z-index:0;background:var(--surface-2)}
+.dark-tiles .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.6)}
 .notiles #map{background-color:var(--surface-2);background-image:linear-gradient(var(--rule) 1px,transparent 1px),linear-gradient(90deg,var(--rule) 1px,transparent 1px);background-size:48px 48px}
 .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-layer{position:absolute;left:0;top:0}
 .leaflet-container{overflow:hidden;font:inherit}
@@ -553,8 +554,9 @@ function initMap(){
   m.attributionControl.setPrefix(false);
   S.map = m;
   let fails = 0;
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark()?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`, {
-    maxZoom:19, subdomains:'abcd', attribution:'© OpenStreetMap · © CARTO · Data 511.org',
+  $('#mapwrap')?.classList.toggle('dark-tiles', isDark());
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · Data 511.org',
   }).on('tileerror', () => { if (++fails === 2){ $('#mapwrap')?.classList.add('notiles'); mapMsg(); } }).addTo(m);
   S.stopLayer = L.layerGroup().addTo(m);
   S.lineLayer = L.layerGroup().addTo(m);
