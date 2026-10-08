@@ -13,27 +13,29 @@
 <title>Halte SF</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <style>
 /* Layout: one-column phone app — sticky header, list of stop cards, fixed bottom tab bar, bottom sheet for details */
 :root{
-  --hue:228;
-  --bg:#EEF1F3; --surface:#FFFFFF; --surface-2:#E4E9ED; --fg:#122029; --muted:#5B6C78; --rule:#D3DBE1;
-  --acc-l:0.50; --acc-c:0.14;
+  --hue:29;
+  --bg:#EDEEEC; --surface:#FFFFFF; --surface-2:#E1E5E7; --fg:#14212B; --muted:#56626B; --rule:#D3D8DA;
+  --navy:#123247; --navy-2:#1C4560; --fog:#EDEEEC; --gold:#E0A526;
+  --acc-l:0.53; --acc-c:0.16;
   --accent:oklch(var(--acc-l) var(--acc-c) var(--hue)); --accent-soft:oklch(0.94 0.04 var(--hue)); --on-accent:#FFFFFF;
   --live:#14874D; --warn:#B26A00; --bad:#BF3328; --spot:#D2551B;
   --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
-  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,monospace;
   --r:14px;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#0C1318; --surface:#141E25; --surface-2:#1D2A33; --fg:#E6EDF1; --muted:#90A2AE; --rule:#283844;
-  --acc-l:0.74; --accent-soft:oklch(0.30 0.06 var(--hue)); --on-accent:#0C1318;
+  --bg:#0C1B26; --surface:#14293A; --surface-2:#1D3A50; --fg:#F4F1EA; --muted:#9FB0BC; --rule:#24435A; --navy:#081520; --navy-2:#14293A; --fog:#0C1B26;
+  --acc-l:0.70; --accent-soft:oklch(0.32 0.07 var(--hue)); --on-accent:#0C1B26;
   --live:#3BD488; --warn:#F0AE48; --bad:#F2695D; --spot:#FF8A4C; color-scheme:dark } }
 :root[data-theme="dark"]{
-  --bg:#0C1318; --surface:#141E25; --surface-2:#1D2A33; --fg:#E6EDF1; --muted:#90A2AE; --rule:#283844;
-  --acc-l:0.74; --accent-soft:oklch(0.30 0.06 var(--hue)); --on-accent:#0C1318;
+  --bg:#0C1B26; --surface:#14293A; --surface-2:#1D3A50; --fg:#F4F1EA; --muted:#9FB0BC; --rule:#24435A; --navy:#081520; --navy-2:#14293A; --fog:#0C1B26;
+  --acc-l:0.70; --accent-soft:oklch(0.32 0.07 var(--hue)); --on-accent:#0C1B26;
   --live:#3BD488; --warn:#F0AE48; --bad:#F2695D; --spot:#FF8A4C; color-scheme:dark }
 :root[data-theme="light"]{ color-scheme:light }
 
@@ -44,15 +46,15 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .app{max-width:560px;margin:0 auto;min-height:100%;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;gap:10px;padding:12px 16px 10px}
+.top{position:sticky;top:0;z-index:5;background:var(--navy);color:#F4F1EA;display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 10px}
 .brand{display:flex;align-items:baseline;gap:8px;flex:1;min-width:0}
-.brand b{font:700 26px/1 var(--f-display);letter-spacing:.01em}
+.brand b{font:700 17px/1 var(--f-display);letter-spacing:.2em;color:#F07A5E}
 .brand .mark{width:18px;height:18px;border-radius:5px;background:var(--accent);align-self:center;position:relative}
 .brand .mark::after{content:"";position:absolute;inset:4px 7px;background:var(--on-accent);border-radius:2px}
-.brand small{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.brand small{color:#B9C6CF;font-size:12px;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
 .chip{font-size:11px;font-weight:700;letter-spacing:.08em;padding:4px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
 .chip.live{background:color-mix(in oklab,var(--live) 18%,transparent);color:var(--live)}
-.updated{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.updated{font-size:12px;color:#B9C6CF;font-variant-numeric:tabular-nums;white-space:nowrap}
 
 main{padding-inline:16px;display:flex;flex-direction:column;gap:14px}
 .h{font:600 13px/1 var(--f-body);text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:6px 2px 0}
@@ -92,9 +94,9 @@ main{padding-inline:16px;display:flex;flex-direction:column;gap:14px}
 .occ.full i.on{background:var(--bad)}
 .eta{text-align:right;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;align-items:flex-end}
 .eta .big{display:flex;align-items:baseline;gap:3px}
-.eta b{font:700 30px/0.95 var(--f-display)}
+.eta b{font:600 26px/1 var(--f-num)}
 .eta small{font-size:12px;color:var(--muted)}
-.eta .rt b{color:var(--live)}
+.eta .rt b{color:var(--accent)}
 .eta .next{font-size:12px;color:var(--muted);margin-top:2px}
 .pulse{width:10px;height:10px;align-self:flex-start;margin-top:2px}
 @media (prefers-reduced-motion:no-preference){ .pulse path{animation:p 1.6s ease-in-out infinite} .pulse path:nth-child(2){animation-delay:.25s} }
@@ -292,11 +294,53 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 .sheet-actions .iconbtn{height:40px;font-size:14px}
 
 .toast{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:30;max-width:520px;margin:0 auto;background:var(--fg);color:var(--bg);padding:12px 14px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+/* --- SF look: skyline band, Karl the Fog --- */
+.top .chip{background:rgba(255,255,255,.1);color:#D5DEE4}
+.top .chip.live{background:rgba(95,211,154,.16);color:#5FD39A}
+.skyline{display:block;width:calc(100% + 32px);height:46px;margin:-14px -16px -4px;color:var(--navy)}
+.pagetitle{font:700 38px/1 var(--f-display);text-transform:uppercase;margin:0 2px;letter-spacing:.01em}
+.karl{display:flex;align-items:center;gap:10px;background:color-mix(in oklab,var(--surface-2) 70%,var(--bg));border-radius:var(--r);padding:10px 14px;font-size:13.5px;line-height:1.35}
+.karl svg{flex:none;width:34px;height:24px}
+.karl b{font-weight:600}
+.karl span{color:var(--muted)}
+.karl.thick{background:color-mix(in oklab,#9FB0BC 30%,var(--surface))}
+
+/* --- Transit tab: map behind, bottom sheet on top --- */
+body.mapmode .top{display:none}
+body.mapmode .app{padding-bottom:0}
+body.mapmode main#view{position:fixed;left:0;right:0;top:0;bottom:var(--tabh,calc(62px + env(safe-area-inset-bottom,0px)));padding:0;gap:0;display:block;overflow:hidden}
+.nmap{position:absolute;inset:0;background:var(--surface-2);isolation:isolate}
+.nmap #map{position:absolute;inset:0}
+.mhead{position:absolute;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top,0px));z-index:3;display:flex;align-items:center;gap:10px;min-height:48px;padding:0 12px;border-radius:14px;background:var(--navy);color:#F4F1EA;box-shadow:0 4px 14px rgba(0,0,0,.22);max-width:540px;margin:0 auto}
+.mhead b{font:700 15px/1 var(--f-display);letter-spacing:.2em;color:#F07A5E;white-space:nowrap}
+.mhead .where{flex:1;min-width:0;font-size:13px;color:#B9C6CF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mhead .chip{background:rgba(255,255,255,.1);color:#D5DEE4}
+.mhead .chip.live{background:rgba(95,211,154,.16);color:#5FD39A}
+.nmap .maptop{top:calc(68px + env(safe-area-inset-top,0px));left:10px;right:66px}
+.mbtns{position:absolute;right:10px;top:calc(68px + env(safe-area-inset-top,0px));z-index:3;display:flex;flex-direction:column;gap:8px}
+.mbtn{width:48px;height:48px;border-radius:50%;background:var(--surface);color:var(--fg);display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,.22)}
+.mbtn svg{width:26px;height:26px}
+.mbtn.on{background:#2E6ED6;color:#fff}
+.mbtn .needle{transition:transform .25s ease}
+.nsheet{position:absolute;left:0;right:0;bottom:0;z-index:4;max-width:560px;margin:0 auto;background:var(--bg);border-radius:22px 22px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.nsheet.anim{transition:top .28s cubic-bezier(.2,.8,.2,1)}
+.grab{flex:none;touch-action:none;cursor:grab;padding:8px 16px 6px;display:flex;flex-direction:column;align-items:center;gap:8px;user-select:none;-webkit-user-select:none}
+.grab i{width:44px;height:5px;border-radius:3px;background:var(--muted);opacity:.5}
+.grab .row{display:flex;align-items:baseline;justify-content:space-between;width:100%}
+.grab .row b{font:700 28px/1 var(--f-display);text-transform:uppercase}
+.grab .row span{font-size:12px;color:var(--muted)}
+.nsb{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 16px 20px;display:flex;flex-direction:column;gap:12px}
+.nsheet[data-pos="peek"] .nsb{overflow:hidden}
+.me2{position:relative;display:block;width:20px;height:20px}
+.me2 .halo{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(46,110,214,.16)}
+.me2 .cone{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;transition:transform .2s linear}
+.me2 .cone[hidden]{display:none}
+.me2 .dot{position:absolute;inset:0;border-radius:50%;background:#2E6ED6;border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35)}
 </style>
 
 <div class="app">
   <header class="top">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><b>Halte</b><small>Muni · BART</small></div>
+    <div class="brand"><b>HALTE · SF</b><small>Muni · BART</small></div>
     <span class="updated" id="updated"></span>
     <span class="chip" id="srcChip">DEMO</span>
   </header>
@@ -304,12 +348,9 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 </div>
 
 <nav class="tabs" aria-label="Main menu"><div class="in">
-  <button data-tab="near"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Nearby</button>
-  <button data-tab="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>Map</button>
-  <button data-tab="spots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5c1.2 1.6 2.6 2 4 2h10c1.4 0 2.8-.4 4-2"/><circle cx="7.5" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/></svg>Spots</button>
-  <button data-tab="lines"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H14a4 4 0 0 1 0 8h-4a4 4 0 0 0 0 8h0M15.5 18"/></svg>Routes</button>
-  <button data-tab="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19z"/><path d="M12 10v4.5M12 17.3v.2"/></svg>Alerts</button>
-  <button data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
+  <button data-tab="near"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8 21l1.5-4M16 21l-1.5-4"/><circle cx="9" cy="14" r=".6"/><circle cx="15" cy="14" r=".6"/></svg>Transit</button>
+  <button data-tab="spots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5c1.2 1.6 2.6 2 4 2h10c1.4 0 2.8-.4 4-2"/><circle cx="7.5" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/></svg>Skate</button>
+  <button data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</button>
 </div></nav>
 
 <div class="scrim" id="scrim" hidden></div>
@@ -433,11 +474,12 @@ const S = {
   fav: store.get('fav', []),
   spots: [], mySpots: store.get('myspots', []), hills: [], myHills: store.get('myhills', []), spotSeg: 'spots', hillPick: null, termsOk: store.get('terms', '') === TERMS_VERSION, plans: {}, spotQ: '', pickSpot: false, spotDraft: null,
   rem: store.get('rem', []),
-  set: Object.assign({theme:'system', hue:228, lead:3, range:1000, weightLb:193, maxMph:25, stance:'stand'}, store.get('settings', {})),
+  set: Object.assign({theme:'system', hue:29, lead:3, range:1000, weightLb:193, maxMph:25, stance:'stand'}, store.get('settings', {})),
   sheet:null, lineFilter:'all', lineData:{},
   map:null, mapFocus:null, mapLine:null, mapVeh:null, vehicles:[], vehUpdated:null,
 };
 
+if (!S.set.sf1){ S.set.hue = 29; S.set.sf1 = true; store.set('settings', S.set); } // new SF look: Golden Gate orange
 /* ================= UTIL ================= */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -463,7 +505,7 @@ const ICON = {
   bell:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>`,
   close:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>`,
   loc:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>`,
-  pulse:`<svg class="pulse" viewBox="0 0 10 10" fill="none" stroke="var(--live)" stroke-width="1.6" stroke-linecap="round"><path d="M2 8a6 6 0 0 1 6-6"/><path d="M2 5a3 3 0 0 1 3-3"/></svg>`,
+  pulse:`<svg class="pulse" viewBox="0 0 10 10" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"><path d="M2 8a6 6 0 0 1 6-6"/><path d="M2 5a3 3 0 0 1 3-3"/></svg>`,
   veh:`<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="14" height="15" rx="3"/><rect x="7" y="18" width="3" height="3" rx="1"/><rect x="14" y="18" width="3" height="3" rx="1"/></svg>`,
 };
 
@@ -526,7 +568,7 @@ async function loadHills(){
   const c = store.get('hills2', null);
   if (c && Date.now() - c.t < 7*86400000){ S.hills = c.hills; }
   else { try { const h = await api('hills', {}, 60000); S.hills = h; store.set('hills2', {t:Date.now(), hills:h}); } catch {} }
-  if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawHills();
+  if (S.tab==='spots') renderDyn(); if (S.tab==='near') drawHills();
 }
 S.hillRoutes = store.get('hillroutes', {});
 let hillQueue = Promise.resolve();
@@ -536,7 +578,7 @@ function loadHillRoute(h){ // measured street route + elevation profile, one hil
   hillQueue = hillQueue.then(async () => {
     try { S.hillRoutes[h.id] = await api('hillroute', {a:`${h.a.lat},${h.a.lon}`, b:`${h.b.lat},${h.b.lon}`}, 60000); store.set('hillroutes', S.hillRoutes); }
     catch { S.hillRoutes[h.id] = null; }
-    if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawHills(); if (S.sheet?.type==='hill' && S.sheet.id===h.id) openSheet(S.sheet);
+    if (S.tab==='spots') renderDyn(); if (S.tab==='near') drawHills(); if (S.sheet?.type==='hill' && S.sheet.id===h.id) openSheet(S.sheet);
   });
 }
 /* ---------- ride-time estimate: gravity, rolling friction, air drag, wind, walking ---------- */
@@ -678,7 +720,7 @@ function rememberMine(id){ S.mine.add(id); store.set('mypublic', [...S.mine]); }
 async function loadCommunity(){
   if (S.mode==='demo') return;
   try { S.community = await api('community', {}, 15000); S.communityOk = true; } catch (e) { S.communityOk = false; }
-  if (S.tab==='spots') renderDyn(); if (S.tab==='map'){ drawSpots(); drawHills(); }
+  if (S.tab==='spots') renderDyn(); if (S.tab==='near'){ drawSpots(); drawHills(); }
   if (S.sheet && (S.sheet.type==='spot' || S.sheet.type==='hill')) renderSheet();
 }
 async function loadSpots(){
@@ -687,7 +729,7 @@ async function loadSpots(){
   const c = store.get('spots', null);
   if (c && Date.now() - c.t < 86400000){ S.spots = c.spots; }
   else { try { const sp = await api('spots', {}, 30000); S.spots = sp; store.set('spots', {t:Date.now(), spots:sp}); } catch {} }
-  if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawSpots();
+  if (S.tab==='spots') renderDyn(); if (S.tab==='near') drawSpots();
 }
 const allSpots = () => [...S.community.spots.map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...S.mySpots.map(x=>({...x, mine:true, local:true})), ...S.spots];
 const spotById = id => allSpots().find(x=>x.id===id);
@@ -756,58 +798,80 @@ function stopCard(s, max=4, keys=null){
 
 /* ================= RENDER: tab ================= */
 function renderTab(){
-  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab===S.tab ? 'page' : 'false'));
+  if (S.tab==='map'){ S.tab = 'near'; S.nsPos = 'peek'; }
+  const group = {near:'near', spots:'spots'}[S.tab] || 'more';
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab===group ? 'page' : 'false'));
+  document.body.classList.toggle('mapmode', S.tab==='near');
+  if (S.tab!=='near') stopWatch();
   const v = $('#view');
-  if (S.map){ S.map.remove(); S.map = null; }
+  if (S.map){ S.map.remove(); S.map = null; S.meMarker = null; }
+  const sky = SKYLINE, title = t => `${sky}<h1 class="pagetitle">${t}</h1>`;
+  const backMore = `<button class="iconbtn ghost" data-tab="more" style="align-self:flex-start;height:36px;font-size:13px">‹ More</button>`;
   const demoNote = S.mode==='demo' ? `<div class="note"><b>Demo mode.</b> These times are sample data. Once the app is deployed with a 511.org key, live Muni data appears automatically.</div>` : '';
   if (S.tab==='near'){
-    v.innerHTML = `${demoNote}
-      <div class="searchrow"><input class="search" id="q" type="search" placeholder="Search stops, e.g. Castro" autocomplete="off" aria-label="Search stops">
-      <button class="iconbtn" id="locBtn" aria-label="Use my location">${ICON.loc}</button></div>
-      <div class="results" id="sr"></div>
-      <div id="favwrap" style="display:flex;flex-direction:column;gap:12px"></div>
-      <div class="h">Near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
-      <div class="credit">Transit data: 511.org</div>`;
-  } else if (S.tab==='map'){
-    v.innerHTML = `<div class="mapwrap" id="mapwrap"><div id="map" aria-label="Stop map"></div>
-      <div class="maptop" id="maptop"></div>
-      <button class="iconbtn maploc" id="mapLoc" aria-label="Back to my location">${ICON.loc}</button></div>`;
-    initMap();
+    v.innerHTML = `<div class="nmap" id="mapwrap"><div id="map" aria-label="Map of stops and live vehicles"></div>
+        <div class="mhead"><b>HALTE · SF</b><span class="where">${esc(S.here.label==='you' ? 'Near you' : S.here.label || 'Near you')}</span><span class="updated" id="updated2"></span><span class="chip" id="srcChip2">DEMO</span></div>
+        <div class="maptop" id="maptop"></div>
+        <div class="mbtns">
+          <button class="mbtn" id="compassBtn" aria-label="Compass: turn the map to face where you're facing">${ICON.compass}</button>
+          <button class="mbtn" id="followBtn" aria-label="Follow my location">${ICON.follow}</button>
+        </div></div>
+      <section class="nsheet" id="nsheet" data-pos="${S.nsPos}" aria-label="Departures near you">
+        <div class="grab" id="grab" role="button" tabindex="0" aria-label="Drag up for departures, down for the map"><i></i>
+          <div class="row"><b>Nearby</b><span id="nsHint"></span></div></div>
+        <div class="nsb" id="nsb">${demoNote}
+          <div id="karl"></div>
+          <div class="searchrow"><input class="search" id="q" type="search" placeholder="Search stops, e.g. Castro" autocomplete="off" aria-label="Search stops">
+          <button class="iconbtn" id="locBtn" aria-label="Use my location">${ICON.loc}</button></div>
+          <div class="results" id="sr"></div>
+          <div id="favwrap" style="display:flex;flex-direction:column;gap:12px"></div>
+          <div class="h" id="nearH">Near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
+          <div class="credit">Transit data: 511.org</div></div>
+      </section>`;
+    setupSheet(); renderKarl(); initMap();
   } else if (S.tab==='spots' && !S.termsOk){
-    v.innerHTML = `<div class="terms">${TERMS_HTML}
+    v.innerHTML = `${title('Skate')}<div class="terms">${TERMS_HTML}
       <label class="check"><input type="checkbox" id="termsChk"> I’ve read these terms. I understand skateboarding is dangerous and I skate at my own risk.</label>
       <button class="iconbtn" id="termsAgree" style="width:100%">I agree</button></div>`;
   } else if (S.tab==='spots' && S.spotSeg==='hills'){
-    v.innerHTML = `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="false">Spots</button><button data-seg="hills" aria-pressed="true">Hills</button></div>
+    v.innerHTML = `${title('Bomb hills')}<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="false">Spots</button><button data-seg="hills" aria-pressed="true">Hills</button></div>
       ${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> This is a sample hill. The installed app routes real SF hills along the streets and checks the elevation every 25 m.</div>':''}
       <div class="searchrow"><div class="note" style="flex:1;margin:0">Routes follow the streets from start to finish and are checked for uphill parts.</div>
       <button class="iconbtn" id="addHill">+ Add hill</button></div>
       <div class="h">Bomb hills</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
       <div class="credit">Elevation: USGS 3DEP · Streets © OpenStreetMap contributors</div>`;
   } else if (S.tab==='spots'){
-    v.innerHTML = `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="true">Spots</button><button data-seg="hills" aria-pressed="false">Hills</button></div>
+    v.innerHTML = `${title('Skate spots')}<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="true">Spots</button><button data-seg="hills" aria-pressed="false">Hills</button></div>
       ${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> These are sample skateparks. The installed app loads every skatepark in SF and live Muni directions.</div>':''}
       <div class="searchrow"><input class="search" id="spq" type="search" placeholder="Search spots" autocomplete="off" aria-label="Search spots" value="${esc(S.spotQ)}">
       <button class="iconbtn" id="addSpot">+ Add spot</button></div>
       <div class="h">Skate spots near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
       <div class="credit">Skatepark locations © OpenStreetMap contributors</div>`;
   } else if (S.tab==='lines'){
-    v.innerHTML = `<div class="seg" role="group" aria-label="Type">
+    v.innerHTML = `${title('Routes')}${backMore}<div class="seg" role="group" aria-label="Type">
         ${[['all','All'],['rail','Metro'],['bus','Bus'],['cable','Cable car'],['bart','BART']].map(([k,t])=>`<button data-lf="${k}" aria-pressed="${S.lineFilter===k}">${t}</button>`).join('')}</div>
       <input class="search" id="lq" type="search" placeholder="Search routes, e.g. 38 or Geary" autocomplete="off" aria-label="Search routes">
       <div id="dyn"></div>`;
   } else if (S.tab==='alerts'){
-    v.innerHTML = `${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> The alerts below are examples.</div>':''}<div class="h">Service alerts</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>`;
+    v.innerHTML = `${title('Alerts')}${backMore}${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> The alerts below are examples.</div>':''}<div class="h">Service alerts</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>`;
+  } else if (S.tab==='more'){
+    v.innerHTML = `${title('More')}<div class="linelist">
+      <button class="lrow" data-tab="lines"><span class="t">Routes</span><span class="m">Every Muni and BART line, live vehicles</span></button>
+      <button class="lrow" data-tab="alerts"><span class="t">Alerts</span><span class="m">${S.alerts.length ? S.alerts.length+' active' : 'Service changes'}</span></button>
+      <button class="lrow" data-tab="settings"><span class="t">Settings</span><span class="m">Theme, Nearby range, hill estimates</span></button>
+      <button class="lrow" id="openTerms"><span class="t">Terms & safety</span><span class="m">Skate at your own risk</span></button></div>
+      <div class="credit">Halte SF · Transit data: 511.org · Not an official SFMTA app</div>`;
   } else {
-    v.innerHTML = renderSettings();
+    v.innerHTML = title('Settings') + backMore + renderSettings();
   }
   renderDyn();
 }
 
 function renderDyn(){
   const d = $('#dyn');
-  $('#updated').textContent = S.updated ? hhmm(S.updated) : '';
-  const chip = $('#srcChip'); chip.textContent = S.mode==='live' ? 'LIVE' : 'DEMO'; chip.className = 'chip' + (S.mode==='live'?' live':'');
+  for (const [u, c] of [['#updated','#srcChip'],['#updated2','#srcChip2']]){
+    const ue = $(u); if (ue) ue.textContent = S.updated ? hhmm(S.updated) : '';
+    const chip = $(c); if (chip){ chip.textContent = S.mode==='live' ? 'LIVE' : 'DEMO'; chip.className = 'chip' + (S.mode==='live'?' live':''); } }
   if (!d) return;
   if (S.tab==='near'){
     const fw = $('#favwrap');
@@ -856,7 +920,7 @@ function renderDyn(){
 }
 
 function renderSettings(){
-  const hues = [[228,'Bay'],[168,'Cypress'],[45,'Sunset'],[330,'Fuchsia'],[268,'Fog']];
+  const hues = [[29,'Golden Gate'],[228,'Bay'],[168,'Cypress'],[70,'Cable car gold'],[330,'Fuchsia']];
   return `<div class="h">Appearance</div>
   <div class="set">
     <span class="lbl">Theme</span>
@@ -907,6 +971,199 @@ function renderSettings(){
     <button class="danger" id="reset">Clear favorites, reminders and saved data</button>
   </div>
   <div class="credit">Halte SF · Transit data: 511.org · Not an official SFMTA app</div>`;
+}
+
+/* ================= SF LOOK: skyline + Karl the Fog ================= */
+const SKYLINE = `<svg class="skyline" viewBox="0 0 390 46" preserveAspectRatio="none" aria-hidden="true">
+  <rect width="390" height="30" fill="currentColor"/>
+  <path d="M0 46V26C30 14 55 10 80 20c20 8 38-14 60-16 20-2 30 14 50 18v24z" fill="var(--navy-2)"/>
+  <path d="M150 46V24h10v-10h8v10h8V10h8v14h12v-6h10v6h8v22z" fill="var(--navy-2)"/>
+  <path d="M226 46 236 0l10 46z" fill="var(--navy-2)"/>
+  <path d="M214 46V30c36-8 56-4 86 2s60-8 90-12v26z" fill="var(--navy-2)"/>
+  <path d="M300 46V4M316 46V4M296 12h24M296 20h24" stroke="var(--accent)" stroke-width="3"/>
+  <path d="M240 24c28 16 44-16 60-22 20 8 40 30 90 24" stroke="var(--accent)" stroke-width="1.5" fill="none"/>
+  <ellipse cx="60" cy="30" rx="90" ry="7" fill="var(--fog)" opacity=".35"/><ellipse cx="250" cy="20" rx="70" ry="6" fill="var(--fog)" opacity=".3"/>
+  <ellipse cx="190" cy="40" rx="140" ry="9" fill="var(--fog)" opacity=".5"/><rect y="42" width="390" height="4" fill="var(--bg)"/>
+</svg>`;
+const KARL_SVG = `<svg viewBox="0 0 84 56" aria-hidden="true"><path d="M14 44C4 44 2 32 11 29 9 18 22 12 30 18c4-12 24-12 28-1 10-4 21 4 17 14 8 3 6 15-4 15z" fill="#fff"/><path d="M30 30q4 4 8 0M48 30q4 4 8 0" stroke="#123247" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M39 37q4 3 8 0" stroke="#123247" stroke-width="2.4" stroke-linecap="round" fill="none"/><circle cx="28" cy="36" r="2.6" fill="#E8A79A"/><circle cx="58" cy="36" r="2.6" fill="#E8A79A"/></svg>`;
+ICON.compass = `<svg viewBox="0 0 30 30" aria-hidden="true"><g class="needle"><path d="M15 3 19.5 15h-9z" fill="var(--accent)"/><path d="M15 27 10.5 15h9z" fill="#9AA6AE"/></g></svg>`;
+ICON.follow = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 3 10.8l7.6 2.6L13.2 21z" fill="currentColor"/></svg>`;
+function fogHour(t, ref){
+  if (!t) return '';
+  const h = +t.slice(11,13), lbl = (h%12||12) + (h<12 ? ' AM' : ' PM');
+  return ref && t.slice(0,10) !== ref.slice(0,10) ? 'tomorrow around ' + lbl : 'around ' + lbl;
+}
+function karlLine(f){
+  if (!f) return null;
+  if (f.level==='thick') return [`Karl's thick right now.`, f.clears ? `Should clear ${fogHour(f.clears, f.time)}. Low visibility, so look twice crossing.` : `Sticking around for a while. Low visibility, so look twice crossing.`];
+  if (f.level==='fog') return [`Karl's rolling through.`, f.clears ? `Should burn off ${fogHour(f.clears, f.time)}.` : `Sticking around for a while.`];
+  if (f.level==='patchy') return [`Karl's hanging around nearby.`, `Patchy gray, mostly dry.`];
+  return [`Karl's taking a break.`, f.arrives ? `Rolling back in ${fogHour(f.arrives, f.time)}.` : `Clear skies for now.`];
+}
+async function loadFog(force){
+  const at = S.gps || S.here; if (!at) return;
+  if (S.mode==='demo'){ S.fog = {level:'fog', clears:new Date().toISOString().slice(0,10)+'T13:00', time:new Date().toISOString()}; renderKarl(); return; }
+  const k = at.lat.toFixed(2)+','+at.lon.toFixed(2);
+  if (!force && S.fogKey===k && Date.now()-S.fogAt < 600000){ renderKarl(); return; }
+  try { S.fog = await api('fog', {at:`${at.lat.toFixed(4)},${at.lon.toFixed(4)}`}, 8000); S.fogKey = k; S.fogAt = Date.now(); } catch { S.fog = null; }
+  renderKarl();
+}
+function renderKarl(){
+  const el = $('#karl'); if (!el) return;
+  const t = karlLine(S.fog); if (!t){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="karl ${S.fog.level}">${KARL_SVG}<div><b>${t[0]}</b> <span>${t[1]}</span></div></div>`;
+}
+S.hillFog = {};
+function hillFogNote(h){
+  if (!h.start || S.mode!=='live') return '';
+  const k = h.start.lat.toFixed(2)+','+h.start.lon.toFixed(2);
+  if (S.hillFog[k] === undefined){ S.hillFog[k] = null;
+    api('fog', {at:`${h.start.lat.toFixed(4)},${h.start.lon.toFixed(4)}`}, 8000).then(f => { S.hillFog[k] = f; if (S.sheet?.type==='hill') renderSheet(); }).catch(()=>{}); }
+  const f = S.hillFog[k]; if (!f || (f.level!=='fog' && f.level!=='thick')) return '';
+  return `<div class="karl ${f.level}">${KARL_SVG}<div><b>Karl's sitting on the top.</b> <span>Damp road and low visibility, so give yourself more room to stop.</span></div></div>`;
+}
+
+/* ================= TRANSIT TAB: pull-up sheet ================= */
+S.nsPos = 'half';
+function sheetTops(){
+  const H = $('#view').clientHeight || window.innerHeight, mh = $('.mhead');
+  const full = mh ? mh.offsetTop + mh.offsetHeight + 8 : 66;
+  return { full, half: Math.max(full + 80, Math.round(H * 0.46)), peek: Math.max(full + 120, H - 68) };
+}
+function setSheetPos(pos, anim=true){
+  const el = $('#nsheet'); if (!el) return;
+  const tops = sheetTops(); S.nsPos = pos;
+  el.classList.toggle('anim', anim); el.style.top = tops[pos] + 'px'; el.dataset.pos = pos;
+  const hint = $('#nsHint'); if (hint) hint.textContent = pos==='peek' ? 'Pull up for times' : 'Pull down for the map';
+  const H = $('#view').clientHeight || window.innerHeight;
+  if (S.map) S.map._ml.easeTo({padding:{top:60, bottom:Math.max(0, H - tops[pos]), left:0, right:0}, duration:anim?280:0});
+}
+function setupSheet(){
+  const el = $('#nsheet'), g = $('#grab'); if (!el || !g) return;
+  setSheetPos(S.nsPos, false);
+  let y0 = 0, top0 = 0, t0 = 0, moved = 0, dragging = false;
+  g.addEventListener('pointerdown', e => { dragging = true; y0 = e.clientY; top0 = el.offsetTop; t0 = performance.now(); moved = 0; el.classList.remove('anim'); try { g.setPointerCapture(e.pointerId); } catch {} });
+  g.addEventListener('pointermove', e => { if (!dragging) return; const T = sheetTops(), dy = e.clientY - y0; moved = Math.max(moved, Math.abs(dy));
+    el.style.top = Math.min(T.peek, Math.max(T.full, top0 + dy)) + 'px'; });
+  const end = e => { if (!dragging) return; dragging = false;
+    const order = ['full','half','peek'], T = sheetTops();
+    if (moved < 6){ setSheetPos({peek:'half', half:'full', full:'peek'}[S.nsPos]); return; }
+    const v = (e.clientY - y0) / Math.max(1, performance.now() - t0), cur = el.offsetTop;
+    let pos = order.reduce((a,b) => Math.abs(T[a]-cur) < Math.abs(T[b]-cur) ? a : b);
+    if (Math.abs(v) > 0.5){ const i = order.indexOf(S.nsPos), j = order.indexOf(pos); if (i === j) pos = order[Math.min(2, Math.max(0, i + (v > 0 ? 1 : -1)))]; }
+    setSheetPos(pos); };
+  g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+  g.addEventListener('keydown', e => { if (e.key==='Enter' || e.key===' '){ e.preventDefault(); setSheetPos({peek:'half', half:'full', full:'peek'}[S.nsPos]); } });
+  $('#q')?.addEventListener('focus', () => setSheetPos('full'));
+}
+function measureTabs(){ const n = $('.tabs'); if (n) document.documentElement.style.setProperty('--tabh', n.offsetHeight + 'px'); }
+window.addEventListener('resize', () => { measureTabs(); if (S.tab==='near') setSheetPos(S.nsPos, false); });
+
+/* ================= FOLLOW ME + COMPASS ================= */
+S.follow = true; S.headingUp = false; S.heading = null; S.gps = null; S.watchId = null;
+function startWatch(asked){
+  if (S.watchId != null || !navigator.geolocation) { if (!navigator.geolocation && asked) toast('Location isn’t available on this device.'); return; }
+  if (asked) toast('Finding your location…');
+  S.watchId = navigator.geolocation.watchPosition(onPos, () => {
+    stopWatch(); if (asked) toast('Location permission was denied or is unavailable.'); S.follow = false; updMapBtns();
+  }, {enableHighAccuracy:true, maximumAge:5000, timeout:30000});
+}
+function stopWatch(){ if (S.watchId != null){ navigator.geolocation.clearWatch(S.watchId); S.watchId = null; } }
+function onPos(p){
+  const c = p.coords;
+  S.gps = {lat:c.latitude, lon:c.longitude, acc:c.accuracy || 30, course:(c.heading != null && !isNaN(c.heading) && (c.speed || 0) > 1.5) ? c.heading : null};
+  if (!S.here || S.here.label !== 'you' || dist(S.here, S.gps) > 120){
+    S.here = {lat:S.gps.lat, lon:S.gps.lon, label:'you'}; store.set('here', S.here);
+    const w = $('.mhead .where'); if (w) w.textContent = 'Near you';
+    const nh = $('#nearH'); if (nh) nh.textContent = 'Near you';
+    refreshArrivals(); loadFog(true);
+  }
+  updateMe(); if (S.follow) followCenter();
+}
+function metersPerPx(lat, zoom){ return 40075016.686 * Math.cos(lat*Math.PI/180) / (512 * 2**zoom); }
+function updateMe(){
+  if (!S.map) return;
+  const ml = S.map._ml, at = S.gps || S.here;
+  if (!S.meMarker){
+    const el = document.createElement('div');
+    el.innerHTML = `<span class="me2"><span class="halo"></span><span class="cone" hidden><svg viewBox="0 0 70 70"><defs><radialGradient id="cg" cx="50%" cy="100%" r="100%"><stop offset="0" stop-color="#2E6ED6" stop-opacity=".55"/><stop offset="1" stop-color="#2E6ED6" stop-opacity="0"/></radialGradient></defs><path d="M35 35 18 2Q35-4 52 2z" fill="url(#cg)"/></svg></span><span class="dot"></span></span>`;
+    S.meMarker = new maplibregl.Marker({element:el, rotationAlignment:'map', pitchAlignment:'map'}).setLngLat([at.lon, at.lat]).addTo(ml);
+    ml.on('zoom', updateHalo);
+  }
+  S.meMarker.setLngLat([at.lon, at.lat]);
+  const h = S.heading ?? S.gps?.course, cone = S.meMarker.getElement().querySelector('.cone');
+  if (cone){ cone.hidden = h == null; if (h != null) S.meMarker.setRotation(h); }
+  updateHalo();
+}
+function updateHalo(){
+  if (!S.map || !S.meMarker) return;
+  const at = S.gps || S.here, halo = S.meMarker.getElement().querySelector('.halo');
+  const px = S.gps ? Math.min(260, Math.max(28, 2 * S.gps.acc / metersPerPx(at.lat, S.map._ml.getZoom()))) : 28;
+  halo.style.width = halo.style.height = px + 'px'; halo.style.margin = `${-px/2}px 0 0 ${-px/2}px`;
+}
+let lastFollow = 0;
+function followCenter(force){
+  if (!S.map || !S.gps) return;
+  const now = performance.now(); if (!force && now - lastFollow < 300) return; lastFollow = now;
+  const ml = S.map._ml, o = {center:[S.gps.lon, S.gps.lat], duration:force ? 600 : 400};
+  if (S.headingUp && S.heading != null) o.bearing = S.heading;
+  if (force && ml.getZoom() < 15) o.zoom = 16;
+  ml.easeTo(o);
+}
+let lastHead = 0, lastHeadVal = null;
+function onOrient(e){
+  let h = e.webkitCompassHeading;
+  if (h == null && e.absolute && e.alpha != null) h = 360 - e.alpha;
+  if (h == null || isNaN(h)) return;
+  h = ((h + (screen.orientation?.angle || 0)) % 360 + 360) % 360;
+  S.heading = h;
+  const now = performance.now();
+  if (now - lastHead < 120) return;
+  if (lastHeadVal != null && Math.abs(((h - lastHeadVal + 540) % 360) - 180) < 2) return;
+  lastHead = now; lastHeadVal = h;
+  updateMe();
+  if (S.headingUp && S.map){ const ml = S.map._ml; ml.easeTo({bearing:h, center:S.follow && S.gps ? [S.gps.lon, S.gps.lat] : ml.getCenter(), duration:120, easing:x=>x}); }
+}
+async function startCompass(){
+  if (S.compassOn) return true;
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      if (await DeviceOrientationEvent.requestPermission() !== 'granted') return false;
+    }
+  } catch { return false; }
+  if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', onOrient);
+  else if ('DeviceOrientationEvent' in window) window.addEventListener('deviceorientation', onOrient);
+  else return false;
+  S.compassOn = true; return true;
+}
+function updMapBtns(){
+  const f = $('#followBtn'), c = $('#compassBtn');
+  if (f){ f.classList.toggle('on', S.follow && S.watchId != null); f.setAttribute('aria-pressed', String(S.follow && S.watchId != null)); }
+  if (c){ c.classList.toggle('on', S.headingUp); c.setAttribute('aria-pressed', String(S.headingUp));
+    c.setAttribute('aria-label', S.headingUp ? 'Compass on: tap to turn the map north up' : 'Compass: turn the map to face where you’re facing');
+    const n = c.querySelector('.needle'); if (n && S.map) n.style.transform = `rotate(${-S.map._ml.getBearing()}deg)`; n && (n.style.transformOrigin = '15px 15px'); }
+}
+async function tapCompass(){
+  if (!S.map) return;
+  const ml = S.map._ml;
+  if (S.headingUp){ S.headingUp = false; ml.easeTo({bearing:0, duration:500}); updMapBtns(); return; }
+  if (Math.abs(ml.getBearing()) > 1 && !S.compassOn){ ml.easeTo({bearing:0, duration:500}); return; } // first tap after a manual rotate: back to north
+  const ok = await startCompass();
+  if (!ok){ ml.easeTo({bearing:0, duration:500}); toast('Your phone’s compass isn’t available, so the map stays north up.'); return; }
+  S.headingUp = true; S.follow = true; startWatch(S.watchId == null); updMapBtns();
+  if (S.heading == null) toast('Turn around slowly if the arrow doesn’t move.'); else followCenter(true);
+}
+function tapFollow(){
+  S.follow = true; startWatch(S.watchId == null); updMapBtns();
+  if (S.gps) followCenter(true);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopWatch();
+  else if (S.tab==='near' && S.follow) autoWatch();
+});
+async function autoWatch(){
+  try { const st = await navigator.permissions?.query({name:'geolocation'}); if (st?.state === 'granted') startWatch(false); } catch {}
+  updMapBtns();
 }
 
 /* ================= MAP ENGINE (MapLibre, with a tiny Leaflet-style wrapper) ================= */
@@ -973,7 +1230,6 @@ const LM = (() => {
     const el = document.getElementById(id);
     const ml = new maplibregl.Map({ container:el, style:mapStyle(S.mapKey), center:[S.here.lon, S.here.lat], zoom:15,
       attributionControl:{compact:false, customAttribution:'Data 511.org'}, dragRotate:true, pitchWithRotate:true, maxPitch:60 });
-    ml.addControl(new maplibregl.NavigationControl({showCompass:true, visualizePitch:true}), 'top-left');
     const w = { _ml:ml, _groups:[], _ready:false, _clickFns:[], _lineHits:[],
       setView(ll, z){ ml.jumpTo({center:toLngLat(ll), zoom:(z||ml.getZoom()+1)-1}); return w; },
       fitBounds(b, o={}){ const pad = Array.isArray(o.padding) ? o.padding[0] : (o.padding||30);
@@ -1074,7 +1330,7 @@ function mapMsg(){
 async function initMap(){
   if (!window.maplibregl){ $('#map').innerHTML = '<div class="note" style="margin:12px">The map couldn’t load. Check your connection and open this tab again.</div>'; return; }
   await getMapKey();
-  if (S.tab !== 'map' || !$('#map') || S.map) return;
+  if (S.tab !== 'near' || !$('#map') || S.map) return;
   const focus = S.mapFocus && stopById(S.mapFocus);
   const v0 = selVeh();
   const m = L.map('map', {zoomControl:true, attributionControl:true})
@@ -1087,7 +1343,12 @@ async function initMap(){
   S.hillLayer = L.layerGroup().addTo(m);
   S.spotLayer = L.layerGroup().addTo(m);
   S.vehLayer = L.layerGroup().addTo(m);
-  L.marker([S.here.lat, S.here.lon], {icon:L.divIcon({className:'', html:'<span class="me"></span>', iconSize:[18,18], iconAnchor:[9,9]}), interactive:false, keyboard:false}).addTo(m);
+  updateMe();
+  m._ml.on('dragstart', e => { if (e.originalEvent && S.follow){ S.follow = false; updMapBtns(); } });
+  m._ml.on('rotate', updMapBtns);
+  setSheetPos(S.nsPos, false);
+  if (S.follow && !v0 && !focus && !S.mapLine && !S.mapHill && !S.mapSpot && !S.hillPick?.picking && !S.pickSpot) autoWatch(); else { S.follow = false; updMapBtns(); }
+  if (S.gps && S.follow) followCenter(true);
   m.on('moveend', () => { drawStops(); drawSpots(); drawHills(); drawVehicles(); });
   m.on('click', ev => {
     if (S.hillPick && S.hillPick.picking){
@@ -1201,7 +1462,7 @@ async function showOnMap(opts){
   S.mapSpot = opts.spot || null; S.mapHill = opts.hill || null;
   S.mapFocus = opts.stop || null; S.mapLine = opts.line || null; S.mapVeh = opts.veh || null;
   S.centerVeh = !!opts.veh; S.lineFitted = false;
-  closeSheet(); S.tab = 'map'; renderTab(); window.scrollTo(0,0);
+  closeSheet(); S.tab = 'near'; S.nsPos = 'peek'; renderTab(); window.scrollTo(0,0);
   if (S.mapLine && !S.lineData[S.mapLine.id]){ await loadLine(S.mapLine.id); drawLine(); }
 }
 
@@ -1286,7 +1547,7 @@ function renderSheet(){
           <div class="route-steps">${(r.length/1000).toFixed(r.length<1000?2:1)} km along ${esc((r.streets||[]).join(' → ') || 'the street')}${r.via ? `, through ${r.via} pin${r.via>1?'s':''} along the way` : ''}.${r.climbs.length ? ' Uphill bits are shaded in the chart.' : ''}${r.swapped && h.mine ? ' Start and finish were swapped so the route runs downhill.' : ''}</div>
           ${hillChecks(r)}</div>
         ${profileSvg(r)}
-        ${rideCard(h)}`;
+        ${rideCard(h)}${hillFogNote(h)}`;
     el.innerHTML = `<div class="sheet-h"><h2>${esc(h.name)}<div class="meta">${r ? dhBadge(r)+' · ' : ''}start is ${fmtDist(dist(S.here, h.start))}</div></h2>
         <button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
@@ -1386,16 +1647,17 @@ function checkReminders(){
 document.addEventListener('click', async e => {
   const t = e.target.closest('button, .scrim, [data-track]'); if (!t) return;
   const ds = t.dataset;
-  if (ds.tab==='spots' || ds.tab==='map') loadCommunity();
-  if (ds.tab){ if (ds.tab==='map'){ S.mapFocus = null; S.mapLine = null; S.mapSpot = null; S.mapHill = null; S.pickSpot = false; if (S.hillPick) S.hillPick.picking = false; }
-    S.tab = ds.tab; renderTab(); window.scrollTo(0,0); if (ds.tab!=='settings' && ds.tab!=='map') refreshArrivals(); return; }
+  if (ds.tab==='spots' || ds.tab==='near') loadCommunity();
+  if (ds.tab){ if (ds.tab==='near' && S.tab==='near'){ S.mapFocus = null; S.mapLine = null; S.mapSpot = null; S.mapHill = null; S.pickSpot = false; if (S.hillPick) S.hillPick.picking = false; S.follow = true; }
+    S.tab = ds.tab; renderTab(); window.scrollTo(0,0); if (!['settings','more','lines','alerts'].includes(ds.tab)) refreshArrivals(); return; }
   if (ds.mapStop){ showOnMap({stop:ds.mapStop}); return; }
   if (ds.mapLine){ showOnMap({line:{id:ds.mapLine, dir:ds.mapDir}}); return; }
   if ('clearLine' in ds){ S.mapLine = null; S.lineLayer?.clearLayers(); drawVehicles(); mapMsg(); return; }
   if (ds.track){ showOnMap({veh:{line:ds.tline, vehicle:ds.track}, line:{id:ds.tline, dir:ds.tdir}}); return; }
   if (ds.vehRoute){ S.mapLine = {id:ds.vehRoute, dir:ds.vehDir}; S.lineFitted = true; if (!S.lineData[ds.vehRoute]) await loadLine(ds.vehRoute); drawLine(); drawVehicles(); mapMsg(); return; }
   if ('clearVeh' in ds){ S.mapVeh = null; drawVehicles(); mapMsg(); return; }
-  if (t.id==='mapLoc'){ S.map?.setView([S.here.lat, S.here.lon], 16); return; }
+  if (t.id==='followBtn'){ tapFollow(); return; }
+  if (t.id==='compassBtn'){ tapCompass(); return; }
   if (t.id==='scrim' || 'close' in ds){ closeSheet(); return; }
   if (ds.openStop){ openSheet({type:'stop', id:ds.openStop}); return; }
   if (ds.seg){ S.spotSeg = ds.seg; renderTab(); return; }
@@ -1423,7 +1685,7 @@ document.addEventListener('click', async e => {
   if ('donePins' in ds){ if (S.hillPick?.pts.length >= 2){ S.hillPick.picking = false; mapMsg(); openSheet({type:'addhill'}); } return; }
   if ('cancelHill' in ds){ S.hillPick = null; S.hillLayer?.clearLayers(); mapMsg(); drawHills(); return; }
   if (t.id==='hlPick'){ S.hillPick.name = $('#hlName').value; S.hillPick.picking = true; S.hillPick.pts = [];
-    closeSheet(); S.mapLine = S.mapVeh = S.mapFocus = S.mapSpot = S.mapHill = null; S.tab = 'map'; renderTab(); window.scrollTo(0,0); S.hillLayer?.clearLayers(); mapMsg(); return; }
+    closeSheet(); S.mapLine = S.mapVeh = S.mapFocus = S.mapSpot = S.mapHill = null; S.tab = 'near'; S.nsPos = 'peek'; renderTab(); window.scrollTo(0,0); S.hillLayer?.clearLayers(); mapMsg(); return; }
   if (t.id==='hlSave'){
     const hp = S.hillPick; hp.name = $('#hlName').value.trim();
     if (!hp.name){ toast('Give the hill a name.'); return; }
@@ -1464,7 +1726,7 @@ document.addEventListener('click', async e => {
   if (t.id==='addSpot'){ S.spotDraft = null; openSheet({type:'addspot'}); return; }
   if (t.id==='spHere' || t.id==='spPick' || t.id==='spSave'){
     const dr = S.spotDraft; dr.name = $('#spName').value; dr.type = $('#spType').value; dr.note = $('#spNote').value;
-    if (t.id==='spPick'){ S.pickSpot = true; closeSheet(); S.mapLine = null; S.mapVeh = null; S.mapFocus = null; S.mapSpot = null; S.tab = 'map'; renderTab(); window.scrollTo(0,0); return; }
+    if (t.id==='spPick'){ S.pickSpot = true; closeSheet(); S.mapLine = null; S.mapVeh = null; S.mapFocus = null; S.mapSpot = null; S.tab = 'near'; S.nsPos = 'peek'; renderTab(); window.scrollTo(0,0); return; }
     if (t.id==='spHere'){
       if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
       navigator.geolocation.getCurrentPosition(p => { dr.lat = +p.coords.latitude.toFixed(6); dr.lon = +p.coords.longitude.toFixed(6); renderSheet(); toast('Location set to where you are.'); },
@@ -1495,7 +1757,7 @@ document.addEventListener('click', async e => {
     const i = S.fav.findIndex(f=>f.id===ds.fav);
     if (i>=0){ S.fav.splice(i,1); toast('Removed from favorites.'); }
     else { const st = S.stops.find(s=>s.id===ds.fav); S.fav.push({id:st.id, name:st.name, lat:st.lat, lon:st.lon}); toast('Saved to favorites.'); }
-    store.set('fav', S.fav); renderDyn(); if (S.tab==='map') drawStops(); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet(); return;
+    store.set('fav', S.fav); renderDyn(); if (S.tab==='near') drawStops(); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet(); return;
   }
   if (ds.bell){
     const i = S.rem.findIndex(r=>r.key===ds.bell);
@@ -1514,15 +1776,7 @@ document.addEventListener('click', async e => {
   if (ds.hue){ S.set.hue = +ds.hue; saveSet(); renderTab(); return; }
   if (t.id==='reset'){ if (t.dataset.armed){ ['fav','rem','base','here','settings','myspots','myhills','spots','hills','hills2','hillroutes','terms','termsAt'].forEach(k=>{try{localStorage.removeItem('halte.'+k)}catch{}}); location.reload(); }
     else { t.dataset.armed = '1'; t.textContent = 'Tap again to clear everything'; } return; }
-  if (t.id==='locBtn'){
-    if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
-    toast('Finding your location…');
-    navigator.geolocation.getCurrentPosition(p => {
-      S.here = {lat:p.coords.latitude, lon:p.coords.longitude, label:'you'}; store.set('here', S.here);
-      toast('Showing stops near you.'); renderTab(); refreshArrivals();
-    }, () => toast('Location permission was denied or unavailable. Staying at Union Square.'), {enableHighAccuracy:true, timeout:10000});
-    return;
-  }
+  if (t.id==='locBtn'){ tapFollow(); return; }
   if (t.classList.contains('res')){ openSheet({type:'stop', id:t.dataset.stop}); return; }
 });
 document.addEventListener('input', e => {
@@ -1545,13 +1799,14 @@ document.addEventListener('keydown', e => { if (e.key==='Escape' && S.sheet) clo
 
 /* ================= START ================= */
 async function boot(){
-  applyTheme(); renderTab();
+  applyTheme(); measureTabs(); renderTab();
   try { const p = await api('ping', {}, 4000); if (p.ok) S.mode = 'live'; } catch {}
   try { await loadBase(); } catch { S.mode = 'demo'; await loadBase(); toast('The data server isn’t ready, so sample data is shown.'); }
-  renderTab(); refreshArrivals();
+  renderTab(); refreshArrivals(); loadFog();
+  setInterval(() => { if (!document.hidden) loadFog(true); }, 15*60000);
   setInterval(refreshArrivals, S.mode==='live' ? 60000 : 30000);
-  setInterval(() => { renderDyn(); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet(); checkReminders(); if (S.tab==='map' && !document.hidden) loadVehicles(); }, 15000);
-  setInterval(() => { if ((S.tab==='spots' || S.tab==='map') && !document.hidden) loadCommunity(); }, 60000);
+  setInterval(() => { renderDyn(); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet(); checkReminders(); if (S.tab==='near' && !document.hidden) loadVehicles(); }, 15000);
+  setInterval(() => { if ((S.tab==='spots' || S.tab==='near') && !document.hidden) loadCommunity(); }, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshArrivals(); });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 }

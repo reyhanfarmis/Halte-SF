@@ -2,8 +2,8 @@
 
 A web app you can install on your phone's home screen (PWA). Features:
 
-- **Nearby**: every Muni and BART route within your range (500 m, 1 km or 1.5 km), each shown once at its closest stop, with real-time arrivals and walking time
-- **Map**: every stop around you (tap a dot to see arrivals), "Show on map" from any stop, and route lines with live vehicles
+- **Transit**: a live map with a pull-up list, like the Transit app. Drag the sheet down for the map, up for departures. Every Muni and BART route within your range (500 m, 1 km or 1.5 km) is shown once at its closest stop, with real-time arrivals. The map follows you like Google Maps, and the compass button turns it to face where you're facing
+- **Karl the Fog**: a fog check for where you are (Open-Meteo visibility and low clouds), with when it should burn off, plus a fog warning on hills
 - **Favorites**: save as many stops as you like (shown at the top of Nearby)
 - **Spots**: SF skateparks from OpenStreetMap plus street spots anyone can add (public, shared with everyone), each with live one-seat Muni or BART directions from where you are
 - **Hills**: drop up to 12 pins along the line you actually bomb; the route follows bikeable streets through every pin. An elevation profile sampled every ~25 m (USGS lidar) checks that it finishes lower than it starts, that any uphill bits are short enough to walk (8 m or less), and that it ends downhill. Live directions to the top, and hills anyone can add (shared publicly)
@@ -13,7 +13,7 @@ A web app you can install on your phone's home screen (PWA). Features:
 - **Alerts**: Muni and BART service alerts
 - **Reminders**: tap the bell on a departure and get alerted a few minutes before it arrives
 - **Crowding levels** (when Muni reports them)
-- Light/dark themes and 5 accent colors, no ads
+- San Francisco look: fog by day, Bay navy at night, Golden Gate orange for anything live. Five accent colors, no ads
 
 Without the server set up, the app runs in **demo mode** with sample data.
 
