@@ -22,7 +22,7 @@
   --bg:#EEF1F3; --surface:#FFFFFF; --surface-2:#E4E9ED; --fg:#122029; --muted:#5B6C78; --rule:#D3DBE1;
   --acc-l:0.50; --acc-c:0.14;
   --accent:oklch(var(--acc-l) var(--acc-c) var(--hue)); --accent-soft:oklch(0.94 0.04 var(--hue)); --on-accent:#FFFFFF;
-  --live:#14874D; --warn:#B26A00; --bad:#BF3328;
+  --live:#14874D; --warn:#B26A00; --bad:#BF3328; --spot:#D2551B;
   --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
   --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:14px;
@@ -30,11 +30,11 @@
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#0C1318; --surface:#141E25; --surface-2:#1D2A33; --fg:#E6EDF1; --muted:#90A2AE; --rule:#283844;
   --acc-l:0.74; --accent-soft:oklch(0.30 0.06 var(--hue)); --on-accent:#0C1318;
-  --live:#3BD488; --warn:#F0AE48; --bad:#F2695D; color-scheme:dark } }
+  --live:#3BD488; --warn:#F0AE48; --bad:#F2695D; --spot:#FF8A4C; color-scheme:dark } }
 :root[data-theme="dark"]{
   --bg:#0C1318; --surface:#141E25; --surface-2:#1D2A33; --fg:#E6EDF1; --muted:#90A2AE; --rule:#283844;
   --acc-l:0.74; --accent-soft:oklch(0.30 0.06 var(--hue)); --on-accent:#0C1318;
-  --live:#3BD488; --warn:#F0AE48; --bad:#F2695D; color-scheme:dark }
+  --live:#3BD488; --warn:#F0AE48; --bad:#F2695D; --spot:#FF8A4C; color-scheme:dark }
 :root[data-theme="light"]{ color-scheme:light }
 
 *{box-sizing:border-box}
@@ -214,6 +214,46 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 .vc-btn{background:var(--accent);color:var(--on-accent);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600}
 .vc-x{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2)}
 .dep[data-track]{cursor:pointer}
+.lvl{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:color-mix(in oklab,var(--lc) 16%,transparent);color:var(--lc)}
+.hstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px 12px}
+.hstats div{background:var(--surface-2);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--muted)}
+.hstats b{display:block;font:700 22px/1.1 var(--f-display);color:var(--fg);font-variant-numeric:tabular-nums}
+.warns{margin:0;padding:12px 14px;list-style:none;display:flex;flex-direction:column;gap:8px;background:color-mix(in oklab,var(--bad) 9%,var(--surface));border-radius:var(--r);border-left:4px solid var(--bad)}
+.warns li{font-size:14px;padding-left:2px}
+.hilltop{display:block;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:15px solid var(--lc);filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
+.terms{background:var(--surface);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.terms h3{margin:6px 0 0;font-size:15px}
+.terms p{margin:0;color:var(--fg)}
+.terms .big{font:700 30px/1 var(--f-display);text-transform:uppercase;letter-spacing:.01em}
+.check{display:flex;gap:10px;align-items:flex-start;font-weight:600}
+.check input{width:22px;height:22px;flex:none;margin-top:1px}
+.spotpin{display:block;width:20px;height:20px;border-radius:5px;transform:rotate(45deg);background:var(--spot);border:3px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.spotpin.mine{background:var(--accent)}
+.spotpin.focus{width:26px;height:26px;margin:-3px;box-shadow:0 0 0 6px color-mix(in oklab,var(--spot) 35%,transparent),0 1px 4px rgba(0,0,0,.4)}
+.kind{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--spot);text-transform:uppercase;letter-spacing:.06em}
+.kind.mine{color:var(--accent)}
+.kind i{width:8px;height:8px;border-radius:2px;transform:rotate(45deg);background:currentColor;display:inline-block}
+.spot-sub{padding:0 14px 12px;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.trip{background:var(--surface);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.trip-top{display:flex;align-items:center;gap:10px}
+.trip-top .lv{flex:1;min-width:0;font-weight:700;font-size:16px}
+.trip-top .lv small{display:block;font-weight:500;font-size:12.5px;color:var(--muted)}
+.trip-top .arr{text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--muted)}
+.trip-top .arr b{display:block;font:700 22px/1 var(--f-display);color:var(--fg)}
+.steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.steps li{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start}
+.steps li>span:first-child{width:22px;height:22px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;color:var(--muted)}
+.steps li>span:first-child svg{width:14px;height:14px}
+.steps .rtag{color:var(--live);font-weight:600;font-size:12px}
+.trip-actions{display:flex;gap:8px;flex-wrap:wrap}
+.trip-actions .iconbtn{height:36px;font-size:13px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:600;font-size:14px}
+.field input,.field textarea,.field select{width:100%;border-radius:10px;border:1px solid var(--rule);background:var(--surface);color:var(--fg);padding:10px 12px;font:inherit}
+.field textarea{min-height:70px;resize:vertical}
+.locrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.locrow .iconbtn{height:40px;font-size:13.5px}
+.locset{font-size:13px;color:var(--live);font-weight:600}
 .sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
 .sheet-actions .iconbtn{height:40px;font-size:14px}
 
@@ -232,7 +272,7 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 <nav class="tabs" aria-label="Main menu"><div class="in">
   <button data-tab="near"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Nearby</button>
   <button data-tab="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>Map</button>
-  <button data-tab="fav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/></svg>Favorites</button>
+  <button data-tab="spots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5c1.2 1.6 2.6 2 4 2h10c1.4 0 2.8-.4 4-2"/><circle cx="7.5" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/></svg>Spots</button>
   <button data-tab="lines"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H14a4 4 0 0 1 0 8h-4a4 4 0 0 0 0 8h0M15.5 18"/></svg>Routes</button>
   <button data-tab="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19z"/><path d="M12 10v4.5M12 17.3v.2"/></svg>Alerts</button>
   <button data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
@@ -306,6 +346,40 @@ const DEMO_ALERTS = [
   {id:'a2',title:'Powell-Hyde delayed about 10 minutes',body:'Cable repair near Hyde & Lombard. Powell-Mason is running normally.',lines:['PH']},
   {id:'a3',title:'Powell Station elevator at Hallidie Plaza is out of service',body:'Use the elevator at Market & 5th St.',lines:['J','K','L','M','N']},
 ];
+const DEMO_SPOTS = [
+  {id:'ds1', name:'Potrero del Sol Skatepark', lat:37.75330, lon:-122.40620, kind:'park'},
+  {id:'ds2', name:'SoMa West Skatepark', lat:37.76990, lon:-122.42050, kind:'park'},
+  {id:'ds3', name:'Balboa Skatepark', lat:37.72470, lon:-122.44400, kind:'park'},
+  {id:'ds4', name:'Crocker Amazon Skatepark', lat:37.71100, lon:-122.43720, kind:'park'},
+];
+const TERMS_VERSION = '2026-10-07';
+const TERMS_HTML = `
+<p class="big">Know your limits. Skate at your own risk.</p>
+<p>Halte SF shows skate spots, hills and Muni directions for information only. Read these terms before using the Spots and Hills features.</p>
+<h3>1. Skateboarding is dangerous</h3>
+<p>Skateboarding, and especially riding downhill on public streets, can cause serious injury, permanent disability or death. Risks include falls, speed wobbles, loss of control, collisions with vehicles, bikes, people and objects, road defects, wet or debris-covered surfaces, and the actions of other road users.</p>
+<h3>2. Information only, not a safety rating</h3>
+<p>Spot locations, hill grades, difficulty levels, warnings and transit times come from third-party sources (OpenStreetMap, USGS, 511.org) and user submissions. They may be wrong, incomplete or out of date. A difficulty level or the absence of a warning never means a spot or hill is safe. Traffic, construction, weather and road conditions change constantly.</p>
+<h3>3. Your responsibility</h3>
+<p>You alone decide whether, where and how to skate. Check every spot and hill on foot first. Wear a helmet and protective gear. Never ride into an intersection or traffic you can’t see clearly or can’t stop for. Obey traffic laws, posted signs and local rules, and respect private property. Don’t use the app while riding.</p>
+<h3>4. Assumption of risk and release</h3>
+<p>You voluntarily accept all risks of injury, death and property damage that come from skating or from using the app. To the fullest extent allowed by law, you release the developer of Halte SF from any claims arising from your use of the app or from skating at any location shown in it, and you agree not to sue the developer over them.</p>
+<h3>5. No warranty, limited liability</h3>
+<p>The app is provided “as is” and “as available”, without warranties of any kind. To the fullest extent allowed by law, the developer is not liable for any injury, loss or damage, direct or indirect, arising from use of the app or reliance on its information.</p>
+<h3>6. Indemnity</h3>
+<p>You agree to cover any claims, costs or damages brought against the developer that result from your skating, your conduct, or content you add to the app.</p>
+<h3>7. Minors</h3>
+<p>If you are under 18, you may use the Spots and Hills features only with a parent or guardian’s permission, and your parent or guardian accepts these terms on your behalf.</p>
+<h3>8. Your content and transit data</h3>
+<p>Spots and hills you add are saved on your device. Don’t add private property or places where skating is prohibited. Transit times are estimates from 511.org. Halte SF is not affiliated with SFMTA or Muni.</p>
+<h3>9. General</h3>
+<p>These terms are governed by the laws of California. If any part is unenforceable, the rest still applies. Terms may be updated; you’ll be asked to accept a new version. Version ${'2026-10-07'}.</p>`;
+const DEMO_HILLS = [
+  {id:'dh1', name:'Sample hill (Hyde Street → Leavenworth Street)', street:{name:'Filbert Street'}, top:{lat:37.80150,lon:-122.41840,elev:85,cross:'Hyde Street'}, bottom:{lat:37.80130,lon:-122.41670,elev:40,control:'stop',cross:'Leavenworth Street'}, length:151, drop:45, grade:29.8, level:'Extreme', warnings:['Grade this steep is beyond what most riders can control or stop on.','Stop sign at the bottom (Leavenworth Street). You must be able to stop.']},
+  {id:'dh2', name:'Sample hill (Douglass Street → Diamond Street)', street:{name:'Clipper Street'}, top:{lat:37.74940,lon:-122.43870,elev:120,cross:'Douglass Street'}, bottom:{lat:37.74980,lon:-122.43520,elev:104,control:'stop',cross:'Diamond Street'}, length:310, drop:16, grade:5.2, level:'Mellow', warnings:['Stop sign at the bottom (Diamond Street). You must be able to stop.']},
+];
+const LEVEL_COLOR = {Mellow:'#14874D', Advanced:'#B58400', Expert:'#D2551B', Extreme:'#BF3328'};
+const SPOT_TYPES = ['Ledge','Stairs','Rail','Gap','Bank','Manual pad','Park','Other'];
 const COLORS = {J:'#B8600B',K:'#2B78B0',L:'#7B3FA0',M:'#2E8653',N:'#1E4D9A',T:'#BE1E5C',F:'#8A6A2C',PM:'#7A4A1C',PH:'#7A4A1C',C:'#7A4A1C'};
 const PALETTE = ['#2B78B0','#2E8653','#7B3FA0','#B8600B','#BE1E5C','#1E4D9A','#006D77','#8A6A2C'];
 
@@ -319,6 +393,7 @@ const S = {
   mode:'demo', tab:'near', lines:[], stops:[], arr:{}, alerts:[], updated:null,
   here: store.get('here', UNION_SQ),
   fav: store.get('fav', []),
+  spots: [], mySpots: store.get('myspots', []), hills: [], myHills: store.get('myhills', []), spotSeg: 'spots', hillPick: null, termsOk: store.get('terms', '') === TERMS_VERSION, plans: {}, spotQ: '', pickSpot: false, spotDraft: null,
   rem: store.get('rem', []),
   set: Object.assign({theme:'system', hue:228, lead:3}, store.get('settings', {})),
   sheet:null, lineFilter:'all', lineData:{},
@@ -395,7 +470,7 @@ function demoLine(id){
 async function loadBase(){
   if (S.mode === 'demo'){
     S.lines = DEMO_LINES.map(([code,name,mode]) => ({id:code, code, name, mode}));
-    S.stops = DEMO_STOPS; S.alerts = DEMO_ALERTS; return;
+    S.stops = DEMO_STOPS; S.alerts = DEMO_ALERTS; S.spots = DEMO_SPOTS; S.hills = DEMO_HILLS; return;
   }
   const cached = store.get('base', null);
   if (cached && Date.now() - cached.t < 86400000){ S.lines = cached.lines; S.stops = cached.stops; }
@@ -403,8 +478,33 @@ async function loadBase(){
     const [lines, stops] = await Promise.all([api('lines',{},20000), api('stops',{},30000)]);
     S.lines = lines; S.stops = stops; store.set('base', {t:Date.now(), lines, stops});
   }
+  loadSpots();
   api('alerts').then(a => { S.alerts = a; if (S.tab==='alerts') renderTab(); }).catch(()=>{});
 }
+
+async function loadHills(){
+  if (S.mode === 'demo'){ S.hills = DEMO_HILLS; return; }
+  const c = store.get('hills', null);
+  if (c && Date.now() - c.t < 3*86400000){ S.hills = c.hills; }
+  else { try { const h = await api('hills', {}, 60000); S.hills = h; store.set('hills', {t:Date.now(), hills:h}); } catch {} }
+  if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawHills();
+}
+const allHills = () => [...S.myHills.map(x=>({...x, mine:true})), ...S.hills];
+const hillById = id => allHills().find(x=>x.id===id);
+const lvl = h => `<span class="lvl" style="--lc:${LEVEL_COLOR[h.level]||'#888'}">${esc(h.level)}</span>`;
+async function loadSpots(){
+  loadHills();
+  if (S.mode === 'demo'){ S.spots = DEMO_SPOTS; return; }
+  const c = store.get('spots', null);
+  if (c && Date.now() - c.t < 86400000){ S.spots = c.spots; }
+  else { try { const sp = await api('spots', {}, 30000); S.spots = sp; store.set('spots', {t:Date.now(), spots:sp}); } catch {} }
+  if (S.tab==='spots') renderDyn(); if (S.tab==='map') drawSpots();
+}
+const allSpots = () => [...S.mySpots.map(x=>({...x, mine:true})), ...S.spots];
+const spotById = id => allSpots().find(x=>x.id===id);
+function nearestStop(p){ let b=null; for (const s of S.stops){ const d = dist(p, s); if (!b || d < b.d) b = {...s, d}; } return b; }
+function kindLabel(sp){ return sp.mine ? `<span class="kind mine"><i></i>Your spot${sp.type?' · '+esc(sp.type):''}</span>` : `<span class="kind"><i></i>Skatepark</span>`; }
+const walkMins = m => Math.max(1, Math.round(m*1.3/80));
 
 function nearStops(n=6){ return S.stops.map(s => ({...s, d:dist(S.here, s)})).sort((a,b)=>a.d-b.d).slice(0,n); }
 function watchedIds(){
@@ -418,7 +518,7 @@ async function refreshArrivals(){
     try { const r = await api('arrivals', {stops:ids.join(',')}); Object.assign(S.arr, r.stops); S.updated = new Date(r.updated); }
     catch(e){ toast('Couldn’t load the latest times. Trying again shortly.'); }
   }
-  renderDyn(); if (S.sheet) renderSheet();
+  renderDyn(); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet();
 }
 
 /* ================= RENDER: pieces ================= */
@@ -468,6 +568,7 @@ function renderTab(){
       <div class="searchrow"><input class="search" id="q" type="search" placeholder="Search stops, e.g. Castro" autocomplete="off" aria-label="Search stops">
       <button class="iconbtn" id="locBtn" aria-label="Use my location">${ICON.loc}</button></div>
       <div class="results" id="sr"></div>
+      <div id="favwrap" style="display:flex;flex-direction:column;gap:12px"></div>
       <div class="h">Near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
       <div class="credit">Transit data: 511.org</div>`;
   } else if (S.tab==='map'){
@@ -475,8 +576,24 @@ function renderTab(){
       <div class="maptop" id="maptop"></div>
       <button class="iconbtn maploc" id="mapLoc" aria-label="Back to my location">${ICON.loc}</button></div>`;
     initMap();
-  } else if (S.tab==='fav'){
-    v.innerHTML = `<div class="h">Favorite stops</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>`;
+  } else if (S.tab==='spots' && !S.termsOk){
+    v.innerHTML = `<div class="terms">${TERMS_HTML}
+      <label class="check"><input type="checkbox" id="termsChk"> I’ve read these terms. I understand skateboarding is dangerous and I skate at my own risk.</label>
+      <button class="iconbtn" id="termsAgree" style="width:100%">I agree</button></div>`;
+  } else if (S.tab==='spots' && S.spotSeg==='hills'){
+    v.innerHTML = `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="false">Spots</button><button data-seg="hills" aria-pressed="true">Hills</button></div>
+      ${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> These are sample hills. The installed app measures real SF hills with USGS elevation data.</div>':''}
+      <div class="searchrow"><div class="note" style="flex:1;margin:0">No hill is safe. Grades are measured; check every hill on foot first.</div>
+      <button class="iconbtn" id="addHill">+ Add hill</button></div>
+      <div class="h">Bomb hills</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
+      <div class="credit">Elevation: USGS 3DEP · Streets © OpenStreetMap contributors</div>`;
+  } else if (S.tab==='spots'){
+    v.innerHTML = `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="true">Spots</button><button data-seg="hills" aria-pressed="false">Hills</button></div>
+      ${S.mode==='demo'?'<div class="note"><b>Demo mode.</b> These are sample skateparks. The installed app loads every skatepark in SF and live Muni directions.</div>':''}
+      <div class="searchrow"><input class="search" id="spq" type="search" placeholder="Search spots" autocomplete="off" aria-label="Search spots" value="${esc(S.spotQ)}">
+      <button class="iconbtn" id="addSpot">+ Add spot</button></div>
+      <div class="h">Skate spots near ${esc(S.here.label || 'you')}</div><div id="dyn" style="display:flex;flex-direction:column;gap:12px"></div>
+      <div class="credit">Skatepark locations © OpenStreetMap contributors</div>`;
   } else if (S.tab==='lines'){
     v.innerHTML = `<div class="seg" role="group" aria-label="Type">
         ${[['all','All'],['rail','Metro'],['bus','Bus'],['cable','Cable car']].map(([k,t])=>`<button data-lf="${k}" aria-pressed="${S.lineFilter===k}">${t}</button>`).join('')}</div>
@@ -495,9 +612,28 @@ function renderDyn(){
   $('#updated').textContent = S.updated ? hhmm(S.updated) : '';
   const chip = $('#srcChip'); chip.textContent = S.mode==='live' ? 'LIVE' : 'DEMO'; chip.className = 'chip' + (S.mode==='live'?' live':'');
   if (!d) return;
-  if (S.tab==='near') d.innerHTML = nearStops().map(s=>stopCard(s)).join('');
-  else if (S.tab==='fav') d.innerHTML = S.fav.length ? S.fav.map(f=>stopCard(S.stops.find(s=>s.id===f.id) || f, 6)).join('')
-      : `<div class="note">No favorites yet. Tap the star on any stop to save it here. There’s no limit.</div>`;
+  if (S.tab==='near'){
+    const fw = $('#favwrap');
+    if (fw) fw.innerHTML = S.fav.length ? `<div class="h">Favorites</div>` + S.fav.map(f=>stopCard({...(S.stops.find(s=>s.id===f.id) || f), d:undefined}, 6)).join('') : '';
+    const favIds = new Set(S.fav.map(f=>f.id));
+    d.innerHTML = nearStops().filter(s=>!favIds.has(s.id)).map(s=>stopCard(s)).join('');
+  }
+  else if (S.tab==='spots' && S.spotSeg==='hills'){
+    const list = allHills().map(h => ({...h, d:dist(S.here, h.top)})).sort((a,b)=>a.d-b.d);
+    d.innerHTML = list.length ? list.map(h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${lvl(h)}${h.mine?' <span class="kind mine"><i></i>Your hill</span>':''}</span><span class="dist">${fmtDist(h.d)}</span></button>
+      <div class="hstats"><div><b>${h.grade}%</b>grade</div><div><b>${h.length} m</b>long</div><div><b>${Math.round(h.drop)} m</b>drop</div></div></article>`).join('')
+      : `<div class="note">Measuring SF hills… this can take a few seconds the first time.</div>`;
+  }
+  else if (S.tab==='spots'){
+    const q = S.spotQ.trim().toLowerCase();
+    const list = allSpots().filter(x => !q || (x.name+' '+(x.type||'')).toLowerCase().includes(q))
+      .map(x => ({...x, d:dist(S.here, x)})).sort((a,b)=>a.d-b.d).slice(0, 40);
+    d.innerHTML = list.length ? list.map(sp => {
+      const ns = S.stops.length ? nearestStop(sp) : null;
+      return `<article class="card"><button class="card-h" data-open-spot="${esc(sp.id)}"><span class="nm">${esc(sp.name)}<br>${kindLabel(sp)}</span><span class="dist">${fmtDist(sp.d)}</span></button>
+        ${ns?`<div class="spot-sub"><span>Closest Muni stop: ${esc(ns.name)} · ${walkMins(ns.d)} min walk</span></div>`:''}</article>`;
+    }).join('') : `<div class="note">${S.spots.length||S.mySpots.length ? 'No spots match that search.' : 'Loading skate spots…'} Tap <b>+ Add spot</b> to save your own street spots.</div>`;
+  }
   else if (S.tab==='lines'){
     const q = ($('#lq')?.value || '').trim().toLowerCase();
     const ls = S.lines.filter(l => (S.lineFilter==='all' || l.mode===S.lineFilter) && (!q || (l.code+' '+l.name).toLowerCase().includes(q)))
@@ -528,12 +664,17 @@ function renderSettings(){
   <div class="h">Everything included</div>
   <div class="set feat">
     <span>Unlimited favorites</span><span>On</span>
+    <span>Skate spots with Muni directions</span><span>On</span>
+    <span>Bomb hills with measured grades</span><span>On</span>
     <span>Live vehicle positions along routes</span><span>On</span>
     <span>Departure reminders</span><span>On</span>
     <span>Crowding levels</span><span>On</span>
     <span>Themes and accent colors</span><span>On</span>
     <span>No ads</span><span>On</span>
   </div>
+  <div class="h">Terms & safety</div>
+  <div class="set"><span>${S.termsOk ? 'You accepted the skate-at-your-own-risk terms.' : 'You haven’t accepted the terms yet. You’ll be asked before using Spots and Hills.'}</span>
+    <button class="iconbtn ghost" id="openTerms">Read terms & safety</button></div>
   <div class="h">Data source</div>
   <div class="set">
     <span>${S.mode==='live' ? 'Connected to 511.org (Muni, real time).' : 'Demo mode: the 511 server isn’t set up yet, so the app is showing sample data.'}</span>
@@ -577,6 +718,8 @@ async function loadVehicles(){
 function mapMsg(){
   const top = $('#maptop'); if (!top) return;
   const parts = [];
+  if (S.hillPick?.picking) parts.push(`<div class="mapmsg"><b>Tap the ${S.hillPick.a?'other end':'first end'} of the hill.</b> <button class="vc-btn" data-cancel-hill style="margin-left:6px">Cancel</button></div>`);
+  if (S.pickSpot) parts.push(`<div class="mapmsg"><b>Tap the map where the spot is.</b> <button class="vc-btn" data-cancel-pick style="margin-left:6px">Cancel</button></div>`);
   const v = selVeh();
   if (v){
     const L_ = lineInfo(v.line), st = stopById(v.nextStop), m = etaMin(v.eta);
@@ -610,11 +753,23 @@ function initMap(){
   }).on('tileerror', () => { if (++fails === 2){ $('#mapwrap')?.classList.add('notiles'); mapMsg(); } }).addTo(m);
   S.stopLayer = L.layerGroup().addTo(m);
   S.lineLayer = L.layerGroup().addTo(m);
+  S.hillLayer = L.layerGroup().addTo(m);
+  S.spotLayer = L.layerGroup().addTo(m);
   S.vehLayer = L.layerGroup().addTo(m);
   L.marker([S.here.lat, S.here.lon], {icon:L.divIcon({className:'', html:'<span class="me"></span>', iconSize:[18,18], iconAnchor:[9,9]}), interactive:false, keyboard:false}).addTo(m);
-  m.on('moveend', () => { drawStops(); drawVehicles(); });
-  m.on('click', () => { if (S.mapVeh){ S.mapVeh = null; drawVehicles(); mapMsg(); } });
-  drawLine(); drawStops(); drawVehicles(); loadVehicles();
+  m.on('moveend', () => { drawStops(); drawSpots(); drawHills(); drawVehicles(); });
+  m.on('click', ev => {
+    if (S.hillPick && S.hillPick.picking){
+      const pt = {lat:+ev.latlng.lat.toFixed(6), lon:+ev.latlng.lng.toFixed(6)};
+      if (!S.hillPick.a){ S.hillPick.a = pt; L.circleMarker([pt.lat, pt.lon], {radius:7, color:'#BF3328', weight:3, fillOpacity:.6}).addTo(S.hillLayer); mapMsg(); return; }
+      S.hillPick.b = pt; S.hillPick.picking = false; mapMsg(); openSheet({type:'addhill'}); return;
+    }
+    if (S.pickSpot){ S.pickSpot = false; Object.assign(S.spotDraft, {lat:+ev.latlng.lat.toFixed(6), lon:+ev.latlng.lng.toFixed(6)}); openSheet({type:'addspot'}); mapMsg(); return; }
+    if (S.mapVeh){ S.mapVeh = null; drawVehicles(); mapMsg(); }
+  });
+  drawLine(); drawStops(); drawSpots(); drawHills(); drawVehicles(); loadVehicles();
+  if (S.mapHill){ const h = hillById(S.mapHill); if (h) m.fitBounds(L.latLngBounds([[h.top.lat,h.top.lon],[h.bottom.lat,h.bottom.lon]]), {padding:[60,60], maxZoom:18}); }
+  if (S.mapSpot){ const sp = spotById(S.mapSpot); if (sp) m.setView([sp.lat, sp.lon], 16); }
 }
 function drawStops(){
   if (!S.map) return;
@@ -630,6 +785,36 @@ function drawStops(){
         html:`<span class="pin${fav?' fav':''}${foc?' focus':''}"></span>${foc?`<span class="plabel">${esc(s.name)}</span>`:''}`}),
       title: s.name, alt: s.name, zIndexOffset: foc ? 1000 : fav ? 500 : 0,
     }).on('click', () => openSheet({type:'stop', id:s.id})).addTo(S.stopLayer);
+  }
+}
+function drawHills(){
+  if (!S.map || !S.hillLayer) return;
+  if (!S.termsOk){ S.hillLayer.clearLayers(); return; }
+  if (S.hillPick?.picking) return; // keep the picked point visible
+  S.hillLayer.clearLayers();
+  if (S.map.getZoom() < 13 && !S.mapHill) return;
+  for (const h of allHills()){
+    const c = LEVEL_COLOR[h.level] || '#888', foc = h.id===S.mapHill;
+    L.polyline([[h.top.lat,h.top.lon],[h.bottom.lat,h.bottom.lon]], {color:c, weight:foc?9:6, opacity:.9, lineCap:'round'})
+      .on('click', ev => { L.DomEvent.stopPropagation(ev); openSheet({type:'hill', id:h.id}); }).addTo(S.hillLayer);
+    L.marker([h.top.lat, h.top.lon], {icon:L.divIcon({className:'', iconSize:[18,15], iconAnchor:[9,13],
+      html:`<span class="hilltop" style="--lc:${c}"></span>${foc?`<span class="plabel">Top · ${h.grade}%</span>`:''}`}), title:`${h.name}: top`, zIndexOffset:1400})
+      .on('click', ev => { L.DomEvent.stopPropagation(ev); openSheet({type:'hill', id:h.id}); }).addTo(S.hillLayer);
+  }
+}
+function drawSpots(){
+  if (!S.map || !S.spotLayer) return;
+  S.spotLayer.clearLayers();
+  if (!S.termsOk) return;
+  if (S.map.getZoom() < 12) return;
+  const b = S.map.getBounds().pad(0.2);
+  for (const sp of allSpots().filter(x => b.contains([x.lat, x.lon]))){
+    const foc = sp.id===S.mapSpot;
+    L.marker([sp.lat, sp.lon], {
+      icon: L.divIcon({className:'', iconSize:[20,20], iconAnchor:[10,10],
+        html:`<span class="spotpin${sp.mine?' mine':''}${foc?' focus':''}"></span>${foc?`<span class="plabel">${esc(sp.name)}</span>`:''}`}),
+      title: sp.name, alt: sp.name, zIndexOffset: 1500,
+    }).on('click', ev => { L.DomEvent.stopPropagation(ev); openSheet({type:'spot', id:sp.id}); }).addTo(S.spotLayer);
   }
 }
 function drawVehicles(){
@@ -668,6 +853,7 @@ function drawLine(){
   if (!S.mapFocus && !S.mapVeh && !S.lineFitted){ S.lineFitted = true; S.map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lon])), {padding:[30,30]}); }
 }
 async function showOnMap(opts){
+  S.mapSpot = opts.spot || null; S.mapHill = opts.hill || null;
   S.mapFocus = opts.stop || null; S.mapLine = opts.line || null; S.mapVeh = opts.veh || null;
   S.centerVeh = !!opts.veh; S.lineFitted = false;
   closeSheet(); S.tab = 'map'; renderTab(); window.scrollTo(0,0);
@@ -677,7 +863,9 @@ async function showOnMap(opts){
 /* ================= SHEET ================= */
 function openSheet(s){ S.sheet = s; $('#scrim').hidden = false; $('#sheet').hidden = false; renderSheet();
   if (s.type==='stop' && S.arr[s.id]===undefined) refreshArrivals();
-  if (s.type==='line') loadLine(s.id); }
+  if (s.type==='line') loadLine(s.id);
+  if (s.type==='spot'){ const sp = spotById(s.id); if (sp) loadPlan(sp); }
+  if (s.type==='hill'){ const h = hillById(s.id); if (h) loadPlan({id:'hill:'+h.id, lat:h.top.lat, lon:h.top.lon}); } }
 function closeSheet(){ S.sheet = null; $('#scrim').hidden = true; $('#sheet').hidden = true; }
 
 async function loadLine(id){
@@ -686,10 +874,105 @@ async function loadLine(id){
   if (S.sheet?.type==='line' && S.sheet.id===id){ if (!S.sheet.dir) S.sheet.dir = S.lineData[id].directions?.[0]?.dir; renderSheet(); }
 }
 
+function tripCard(o){
+  const leave = Math.round((Date.parse(o.board.eta) - o.board.walk*60000 - Date.now())/60000);
+  const ride = Math.max(1, Math.round((Date.parse(o.alight.eta) - Date.parse(o.board.eta))/60000));
+  const W = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="13" cy="4.5" r="1.8"/><path d="m9 21 2.5-7 3 3V21M8 11l3-3 3 3 3 1"/></svg>`;
+  return `<div class="trip">
+    <div class="trip-top">${badge(o.line)}<div class="lv">${leave<=0?'Leave now':'Leave in '+leave+' min'}<small>toward ${esc(o.dest)}</small></div>
+      <div class="arr">arrive<b>${hhmm(o.arrive)}</b></div></div>
+    <ol class="steps">
+      <li><span>${W}</span><span>Walk ${o.board.walk} min to <b>${esc(o.board.name)}</b></span></li>
+      <li><span>${ICON.veh}</span><span>Board <b>${esc(lineInfo(o.line).code)}</b> at ${hhmm(o.board.eta)} ${o.rt?'<span class="rtag">● live</span>':''}${o.occ&&OCC[o.occ]?' · '+OCC[o.occ][0]:''}</span></li>
+      <li><span>${ICON.veh}</span><span>Ride ${ride} min, get off at <b>${esc(o.alight.name)}</b></span></li>
+      <li><span>${W}</span><span>Walk ${o.alight.walk} min to the spot</span></li>
+    </ol>
+    <div class="trip-actions"><button class="iconbtn ghost" data-track="${esc(o.vehicle)}" data-tline="${esc(o.line)}" data-tdir="${esc(o.dir||'')}">Track this ${lineInfo(o.line).mode==='bus'?'bus':'train'}</button></div>
+  </div>`;
+}
+async function loadPlan(sp){
+  if (S.mode==='demo'){ S.plans[sp.id] = {demo:true}; renderSheet(); return; }
+  try { S.plans[sp.id] = {...await api('plan', {from:`${S.here.lat.toFixed(5)},${S.here.lon.toFixed(5)}`, to:`${sp.lat},${sp.lon}`}, 15000), at:Date.now()}; }
+  catch { S.plans[sp.id] = {error:true}; }
+  if (S.sheet && (S.sheet.type==='spot' || S.sheet.type==='hill')) renderSheet();
+}
+function gmapsLink(sp){ return `https://www.google.com/maps/dir/?api=1&destination=${sp.lat},${sp.lon}&travelmode=transit`; }
+
 function renderSheet(){
   const s = S.sheet, el = $('#sheet'); if (!s) return;
   const keep = el.querySelector('.sheet-b')?.scrollTop || 0;
-  if (s.type==='stop'){
+  if (s.type==='spot'){
+    const sp = spotById(s.id); if (!sp){ closeSheet(); return; }
+    const plan = S.plans[sp.id];
+    let trips;
+    if (!plan) trips = '<div class="note">Finding Muni options from your location…</div>';
+    else if (plan.demo) trips = '<div class="note">Live trip options appear in the installed app, using the buses that are running right now.</div>';
+    else if (plan.error) trips = '<div class="note">Couldn’t load trip options. Try again in a moment.</div>';
+    else trips = (plan.walkOnly && plan.walkOnly <= 15 ? `<div class="note">It’s about a <b>${plan.walkOnly} min walk</b> from ${esc(S.here.label==='you'?'you':S.here.label)}.</div>` : '')
+      + (plan.options.length ? plan.options.map(tripCard).join('')
+        : `<div class="note">No direct Muni ride gets you there in the next 90 minutes. Trips with a transfer: use the Google Maps link above.</div>`);
+    el.innerHTML = `<div class="sheet-h"><h2>${esc(sp.name)}<div class="meta">${kindLabel(sp)} · ${fmtDist(dist(S.here, sp))}</div></h2>
+        <button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b">
+        <div class="sheet-actions">
+          <button class="iconbtn ghost" data-map-spot="${esc(sp.id)}">${ICON.loc} Show on map</button>
+          <a class="iconbtn ghost" href="${gmapsLink(sp)}" target="_blank" rel="noopener" style="text-decoration:none">Google Maps</a>
+          ${sp.mine?`<button class="iconbtn ghost danger" data-del-spot="${esc(sp.id)}">Delete</button>`:''}
+        </div>
+        ${sp.note?`<div class="note">${esc(sp.note)}</div>`:''}
+        <div class="h">Get there by Muni</div>
+        ${trips}
+        ${plan && !plan.demo && !plan.error ? `<div class="credit">From ${esc(S.here.label==='you'?'your location':S.here.label)} · one-seat rides only · updated ${hhmm(plan.updated)}</div>` : ''}
+      </div>`;
+  } else if (s.type==='hill'){
+    const h = hillById(s.id); if (!h){ closeSheet(); return; }
+    const key = 'hill:'+h.id, plan = S.plans[key];
+    const target = {id:key, name:h.name, lat:h.top.lat, lon:h.top.lon};
+    let trips;
+    if (!plan) trips = '<div class="note">Finding Muni options to the top…</div>';
+    else if (plan.demo) trips = '<div class="note">Live trip options appear in the installed app.</div>';
+    else if (plan.error) trips = '<div class="note">Couldn’t load trip options. Try again in a moment.</div>';
+    else trips = (plan.walkOnly && plan.walkOnly <= 15 ? `<div class="note">The top is about a <b>${plan.walkOnly} min walk</b> away.</div>` : '')
+      + (plan.options.length ? plan.options.map(o => tripCard(o).replace('Walk '+o.alight.walk+' min to the spot', 'Walk '+o.alight.walk+' min to the top'+(h.top.cross?' ('+esc(h.top.cross)+')':''))).join('')
+        : '<div class="note">No direct Muni ride to the top in the next 90 minutes. For trips with a transfer, use Google Maps.</div>');
+    el.innerHTML = `<div class="sheet-h"><h2>${esc(h.name)}<div class="meta">${lvl(h)} · top is ${fmtDist(dist(S.here, h.top))}</div></h2>
+        <button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b">
+        <div class="card" style="padding-top:12px"><div class="hstats"><div><b>${h.grade}%</b>avg grade</div><div><b>${h.length} m</b>long</div><div><b>${Math.round(h.drop)} m</b>drop</div></div></div>
+        <ul class="warns">${(h.warnings||[]).map(w=>`<li>⚠ ${esc(w)}</li>`).join('')}<li>⚠ Check the hill on foot, wear a helmet, and never ride into traffic you can’t stop for.</li></ul>
+        <div class="sheet-actions">
+          <button class="iconbtn ghost" data-map-hill="${esc(h.id)}">${ICON.loc} Show on map</button>
+          <a class="iconbtn ghost" href="${gmapsLink(h.top)}" target="_blank" rel="noopener" style="text-decoration:none">Google Maps to top</a>
+          ${h.mine?`<button class="iconbtn ghost danger" data-del-hill="${esc(h.id)}">Delete</button>`:''}
+        </div>
+        <div class="h">Get to the top by Muni</div>
+        ${trips}
+        <div class="credit">Grade measured from ${esc(h.elevSource || 'elevation data')} between the two ends; the steepest part is steeper than the average. Not a safety rating.</div>
+      </div>`;
+  } else if (s.type==='addhill'){
+    const hp = S.hillPick || {};
+    el.innerHTML = `<div class="sheet-h"><h2>Add a hill<div class="meta">Saved on this phone</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b">
+        <div class="field"><label for="hlName">Name</label><input id="hlName" value="${esc(hp.name||'')}" placeholder="e.g. Clipper St from Douglass" maxlength="60"></div>
+        <div class="note">${hp.a && hp.b ? '✓ Both ends set. Saving measures the grade with real elevation data.' : 'Next you’ll tap the two ends of the hill on the map. Order doesn’t matter; the app works out which end is the top.'}</div>
+        <button class="iconbtn" id="${hp.a && hp.b ? 'hlSave' : 'hlPick'}" style="width:100%">${hp.a && hp.b ? 'Measure and save' : 'Pick the two ends on the map'}</button>
+      </div>`;
+  } else if (s.type==='terms'){
+    el.innerHTML = `<div class="sheet-h"><h2>Terms & safety<div class="meta">${S.termsOk?'Accepted':'Not accepted yet'} · version ${TERMS_VERSION}</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b"><div class="terms">${TERMS_HTML}</div></div>`;
+  } else if (s.type==='addspot'){
+    const dr = S.spotDraft || (S.spotDraft = {name:'', type:'Ledge', note:'', lat:null, lon:null});
+    el.innerHTML = `<div class="sheet-h"><h2>Add a spot<div class="meta">Saved on this phone</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b">
+        <div class="field"><label for="spName">Name</label><input id="spName" value="${esc(dr.name)}" placeholder="e.g. Embarcadero ledges" maxlength="60"></div>
+        <div class="field"><label for="spType">Type</label><select id="spType">${SPOT_TYPES.map(t=>`<option${t===dr.type?' selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="field"><label for="spNote">Notes</label><textarea id="spNote" placeholder="Best time to go, security, what to skate" maxlength="300">${esc(dr.note)}</textarea></div>
+        <div class="field"><span class="lbl" style="font-weight:600">Location</span>
+          <div class="locrow"><button class="iconbtn ghost" id="spHere">${ICON.loc} Use where I am</button><button class="iconbtn ghost" id="spPick">Pick on map</button>
+          ${dr.lat!=null?`<span class="locset">✓ Location set</span>`:''}</div></div>
+        <button class="iconbtn" id="spSave" style="width:100%">Save spot</button>
+      </div>`;
+  } else if (s.type==='stop'){
     const st = S.stops.find(x=>x.id===s.id) || S.fav.find(x=>x.id===s.id) || {id:s.id, name:s.id};
     const fav = S.fav.some(f=>f.id===st.id), gs = groups(S.arr[st.id]);
     el.innerHTML = `<div class="sheet-h"><h2>${esc(st.name)}<div class="meta">${S.mode==='live'?`Stop #${esc(st.id)} · `:''}${st.lat?fmtDist(dist(S.here, st)):''}</div></h2>
@@ -738,14 +1021,14 @@ function checkReminders(){
     toast(msg); try { navigator.vibrate?.([200,100,200]); } catch{}
     try { if (window.Notification?.permission==='granted') new Notification('Halte SF', {body:msg, tag:r.key}); } catch{}
   }
-  S.rem = S.rem.filter(r => now < r.at); store.set('rem', S.rem); if (S.sheet) renderSheet();
+  S.rem = S.rem.filter(r => now < r.at); store.set('rem', S.rem); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet();
 }
 
 /* ================= INTERACTION ================= */
 document.addEventListener('click', async e => {
   const t = e.target.closest('button, .scrim, [data-track]'); if (!t) return;
   const ds = t.dataset;
-  if (ds.tab){ if (ds.tab==='map'){ S.mapFocus = null; S.mapLine = null; }
+  if (ds.tab){ if (ds.tab==='map'){ S.mapFocus = null; S.mapLine = null; S.mapSpot = null; S.mapHill = null; S.pickSpot = false; if (S.hillPick) S.hillPick.picking = false; }
     S.tab = ds.tab; renderTab(); window.scrollTo(0,0); if (ds.tab!=='settings' && ds.tab!=='map') refreshArrivals(); return; }
   if (ds.mapStop){ showOnMap({stop:ds.mapStop}); return; }
   if (ds.mapLine){ showOnMap({line:{id:ds.mapLine, dir:ds.mapDir}}); return; }
@@ -756,6 +1039,52 @@ document.addEventListener('click', async e => {
   if (t.id==='mapLoc'){ S.map?.setView([S.here.lat, S.here.lon], 16); return; }
   if (t.id==='scrim' || 'close' in ds){ closeSheet(); return; }
   if (ds.openStop){ openSheet({type:'stop', id:ds.openStop}); return; }
+  if (ds.seg){ S.spotSeg = ds.seg; renderTab(); return; }
+  if (t.id==='termsAgree'){ if (!$('#termsChk').checked){ toast('Tick the box to confirm you’ve read the terms.'); return; }
+    S.termsOk = true; store.set('terms', TERMS_VERSION); store.set('termsAt', new Date().toISOString()); renderTab(); return; }
+  if (t.id==='openTerms'){ openSheet({type:'terms'}); return; }
+  if (ds.openHill){ openSheet({type:'hill', id:ds.openHill}); return; }
+  if (ds.mapHill){ showOnMap({hill:ds.mapHill}); return; }
+  if (ds.delHill){ if (t.dataset.armed){ S.myHills = S.myHills.filter(x=>x.id!==ds.delHill); store.set('myhills', S.myHills); closeSheet(); renderDyn(); drawHills(); toast('Hill deleted.'); }
+    else { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; } return; }
+  if (t.id==='addHill'){ S.hillPick = {name:''}; openSheet({type:'addhill'}); return; }
+  if ('cancelHill' in ds){ S.hillPick = null; S.hillLayer?.clearLayers(); mapMsg(); drawHills(); return; }
+  if (t.id==='hlPick'){ S.hillPick.name = $('#hlName').value; S.hillPick.picking = true; S.hillPick.a = S.hillPick.b = null;
+    closeSheet(); S.mapLine = S.mapVeh = S.mapFocus = S.mapSpot = S.mapHill = null; S.tab = 'map'; renderTab(); window.scrollTo(0,0); S.hillLayer?.clearLayers(); mapMsg(); return; }
+  if (t.id==='hlSave'){
+    const hp = S.hillPick; hp.name = $('#hlName').value.trim();
+    if (!hp.name){ toast('Give the hill a name.'); return; }
+    if (S.mode==='demo'){ toast('Measuring hills needs the installed app.'); return; }
+    t.textContent = 'Measuring…';
+    try {
+      const h = await api('hillcalc', {a:`${hp.a.lat},${hp.a.lon}`, b:`${hp.b.lat},${hp.b.lon}`}, 30000);
+      const hill = {...h, id:'myh-'+Date.now(), name:hp.name};
+      S.myHills.unshift(hill); store.set('myhills', S.myHills); S.hillPick = null;
+      toast(`Saved: ${hill.grade}% average grade.`); openSheet({type:'hill', id:hill.id}); drawHills(); renderDyn();
+    } catch { t.textContent = 'Measure and save'; toast('Couldn’t measure that hill. Check that the two ends are 20 m to 3 km apart.'); }
+    return;
+  }
+  if (ds.openSpot){ openSheet({type:'spot', id:ds.openSpot}); return; }
+  if (ds.mapSpot){ showOnMap({spot:ds.mapSpot}); return; }
+  if (ds.delSpot){ if (t.dataset.armed){ S.mySpots = S.mySpots.filter(x=>x.id!==ds.delSpot); store.set('myspots', S.mySpots); closeSheet(); renderDyn(); drawSpots(); toast('Spot deleted.'); }
+    else { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; } return; }
+  if ('cancelPick' in ds){ S.pickSpot = false; mapMsg(); openSheet({type:'addspot'}); return; }
+  if (t.id==='addSpot'){ S.spotDraft = null; openSheet({type:'addspot'}); return; }
+  if (t.id==='spHere' || t.id==='spPick' || t.id==='spSave'){
+    const dr = S.spotDraft; dr.name = $('#spName').value; dr.type = $('#spType').value; dr.note = $('#spNote').value;
+    if (t.id==='spPick'){ S.pickSpot = true; closeSheet(); S.mapLine = null; S.mapVeh = null; S.mapFocus = null; S.mapSpot = null; S.tab = 'map'; renderTab(); window.scrollTo(0,0); return; }
+    if (t.id==='spHere'){
+      if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
+      navigator.geolocation.getCurrentPosition(p => { dr.lat = +p.coords.latitude.toFixed(6); dr.lon = +p.coords.longitude.toFixed(6); renderSheet(); toast('Location set to where you are.'); },
+        () => toast('Couldn’t get your location. Use Pick on map instead.'), {enableHighAccuracy:true, timeout:10000});
+      return;
+    }
+    if (!dr.name.trim()){ toast('Give the spot a name.'); $('#spName').focus(); return; }
+    if (dr.lat == null){ toast('Set the location first: use where you are or pick it on the map.'); return; }
+    const sp = {id:'my-'+Date.now(), name:dr.name.trim(), type:dr.type, note:dr.note.trim(), lat:dr.lat, lon:dr.lon};
+    S.mySpots.unshift(sp); store.set('myspots', S.mySpots); S.spotDraft = null;
+    toast('Spot saved.'); openSheet({type:'spot', id:sp.id}); renderDyn(); drawSpots(); return;
+  }
   if (ds.openLine){ openSheet({type:'line', id:ds.openLine}); return; }
   if (ds.dir){ S.sheet.dir = ds.dir; renderSheet(); return; }
   if (ds.lf){ S.lineFilter = ds.lf; document.querySelectorAll('[data-lf]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.lf===ds.lf)); renderDyn(); return; }
@@ -763,7 +1092,7 @@ document.addEventListener('click', async e => {
     const i = S.fav.findIndex(f=>f.id===ds.fav);
     if (i>=0){ S.fav.splice(i,1); toast('Removed from favorites.'); }
     else { const st = S.stops.find(s=>s.id===ds.fav); S.fav.push({id:st.id, name:st.name, lat:st.lat, lon:st.lon}); toast('Saved to favorites.'); }
-    store.set('fav', S.fav); renderDyn(); if (S.tab==='map') drawStops(); if (S.sheet) renderSheet(); return;
+    store.set('fav', S.fav); renderDyn(); if (S.tab==='map') drawStops(); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet(); return;
   }
   if (ds.bell){
     const i = S.rem.findIndex(r=>r.key===ds.bell);
@@ -779,7 +1108,7 @@ document.addEventListener('click', async e => {
   }
   if (ds.themeSet){ S.set.theme = ds.themeSet; saveSet(); renderTab(); return; }
   if (ds.hue){ S.set.hue = +ds.hue; saveSet(); renderTab(); return; }
-  if (t.id==='reset'){ if (t.dataset.armed){ ['fav','rem','base','here','settings'].forEach(k=>{try{localStorage.removeItem('halte.'+k)}catch{}}); location.reload(); }
+  if (t.id==='reset'){ if (t.dataset.armed){ ['fav','rem','base','here','settings','myspots','myhills','spots','hills','terms','termsAt'].forEach(k=>{try{localStorage.removeItem('halte.'+k)}catch{}}); location.reload(); }
     else { t.dataset.armed = '1'; t.textContent = 'Tap again to clear everything'; } return; }
   if (t.id==='locBtn'){
     if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
@@ -800,8 +1129,12 @@ document.addEventListener('input', e => {
     sr.innerHTML = hits.length ? hits.map(s=>`<button class="res" data-stop="${esc(s.id)}">${esc(s.name)}<span>${fmtDist(s.d)}</span></button>`).join('') : '<div class="res">No stops with that name.</div>';
   }
   if (e.target.id==='lq') renderDyn();
+  if (e.target.id==='spq'){ S.spotQ = e.target.value; renderDyn(); }
+  if (S.hillPick && e.target.id==='hlName') S.hillPick.name = e.target.value;
+  if (S.spotDraft && e.target.id==='spName') S.spotDraft.name = e.target.value;
+  if (S.spotDraft && e.target.id==='spNote') S.spotDraft.note = e.target.value;
 });
-document.addEventListener('change', e => { if (e.target.id==='lead'){ S.set.lead = +e.target.value; saveSet(); toast(`Reminders: ${S.set.lead} min before arrival.`); } });
+document.addEventListener('change', e => { if (S.spotDraft && e.target.id==='spType') S.spotDraft.type = e.target.value; if (e.target.id==='lead'){ S.set.lead = +e.target.value; saveSet(); toast(`Reminders: ${S.set.lead} min before arrival.`); } });
 document.addEventListener('keydown', e => { if (e.key==='Escape' && S.sheet) closeSheet(); });
 
 /* ================= START ================= */
@@ -811,7 +1144,7 @@ async function boot(){
   try { await loadBase(); } catch { S.mode = 'demo'; await loadBase(); toast('The data server isn’t ready, so sample data is shown.'); }
   renderTab(); refreshArrivals();
   setInterval(refreshArrivals, S.mode==='live' ? 60000 : 30000);
-  setInterval(() => { renderDyn(); if (S.sheet) renderSheet(); checkReminders(); if (S.tab==='map' && !document.hidden) loadVehicles(); }, 15000);
+  setInterval(() => { renderDyn(); if (S.sheet && !['addspot','addhill','terms'].includes(S.sheet.type)) renderSheet(); checkReminders(); if (S.tab==='map' && !document.hidden) loadVehicles(); }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshArrivals(); });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 }

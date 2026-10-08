@@ -4,7 +4,10 @@ A web app you can install on your phone's home screen (PWA). Features:
 
 - **Nearby**: the closest stops to you, real-time arrivals per route, distance and walking time
 - **Map**: every stop around you (tap a dot to see arrivals), "Show on map" from any stop, and route lines with live vehicles
-- **Favorites**: save as many stops as you like
+- **Favorites**: save as many stops as you like (shown at the top of Nearby)
+- **Spots**: SF skateparks from OpenStreetMap plus street spots you add yourself, each with live one-seat Muni directions from where you are
+- **Hills**: bomb hills with grades measured from USGS elevation data, a difficulty level, warnings about what's at the bottom, live Muni directions to the top, and your own hills (tap both ends on the map)
+- **Terms & safety**: a skate-at-your-own-risk agreement users must accept before Spots and Hills
 - **Routes**: every Muni route (Metro, bus, cable car), stops in each direction, and where each vehicle is heading
 - **Alerts**: Muni service alerts
 - **Reminders**: tap the bell on a departure and get alerted a few minutes before it arrives
@@ -49,7 +52,14 @@ A default 511 key is limited to roughly 60 requests per hour. The proxy in `api/
 
 ## Map notes
 
-Street maps use free tiles from CARTO (based on OpenStreetMap). That's fine for personal or small-scale use; for lots of users, switch to a paid tile service such as MapTiler or Mapbox (just change the URL in the `initMap` function).
+Street maps use OpenStreetMap's free standard tiles, which are fine for personal or small-scale use. For lots of users, switch to a tile service such as MapTiler or Stadia Maps (just change the URL in the `initMap` function).
+
+## Data sources for Spots and Hills
+
+- Skateparks and street names: © OpenStreetMap contributors (ODbL), loaded from the Overpass API and cached for a day.
+- Elevation: USGS 3DEP Elevation Point Query Service (falls back to Open-Meteo).
+- Spots and hills users add are stored only on their own phone.
+- The terms in the app are a starting template, not legal advice. Have a lawyer review them if the app goes public or makes money.
 
 ## Not built yet
 
