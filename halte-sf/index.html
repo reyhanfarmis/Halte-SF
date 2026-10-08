@@ -1016,6 +1016,9 @@ function renderSettings(){
     <span class="lbl">Accent color</span>
     <div class="sw">${hues.map(([h,n])=>`<button data-hue="${h}" style="--h:${h}" aria-pressed="${S.set.hue===h}" aria-label="${n}" title="${n}"></button>`).join('')}</div>
   </div>
+  <div class="h">Map</div>
+  <div class="set"><span>Map in use: <b>${esc(S.mapStatus || (S.mapKey ? 'MapTiler (loading…)' : S.mode==='live' ? 'checking…' : 'OpenStreetMap (demo)'))}</b></span>
+    ${S.mapFail ? `<span class="hint">MapTiler said: ${esc(S.mapFail)}. In MapTiler → API keys → your key, check Allowed HTTP Origins is exactly <b>halte-sf.vercel.app</b>, or clear it to test.</span>` : ''}</div>
   <div class="h">Location</div>
   <div class="set">
     <span>${S.gps ? 'On: live GPS, updating as you move.' : S.locDenied ? 'Off: Halte isn’t allowed to use your location.' : 'Waiting for GPS…'}</span>
@@ -1412,6 +1415,7 @@ async function getMapKey(){
 }
 function mapStyle(key){
   if (key) return `https://api.maptiler.com/maps/${isDark() ? 'streets-v2-dark' : 'streets-v2'}/style.json?key=${encodeURIComponent(key)}`;
+  if (!key) S.mapStatus = S.mapStatus || 'OpenStreetMap (no MapTiler key received)';
   return { version:8, sources:{ osm:{ type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256, maxzoom:19,
     attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' } },
     layers:[{ id:'osm', type:'raster', source:'osm' }] };
@@ -1489,7 +1493,8 @@ const LM = (() => {
         }
       },
     };
-    ml.on('load', () => { w._ready = true; w._groups.forEach(g => w._syncLines(g)); });
+    ml.on('load', () => { w._ready = true; w._groups.forEach(g => w._syncLines(g)); if (S.mapKey && !S.mapFail) S.mapStatus = 'MapTiler'; });
+    ml.on('style.load', () => { if (w._ready) w._groups.forEach(g => w._syncLines(g)); });
     ml.on('click', e => {
       const layers = w._groups.filter(g=>g.lines.some(l=>l.click) && ml.getLayer(g.id+'-solid')).flatMap(g=>[g.id+'-solid', g.id+'-dash']);
       const hit = layers.length ? ml.queryRenderedFeatures([[e.point.x-8,e.point.y-8],[e.point.x+8,e.point.y+8]], {layers}) : [];
@@ -1497,8 +1502,18 @@ const LM = (() => {
       const ev = {latlng:{lat:e.lngLat.lat, lng:e.lngLat.lng}};
       w._clickFns.forEach(fn => fn(ev));
     });
-    let fails = 0;
-    ml.on('error', () => { if (++fails === 4){ $('#mapwrap')?.classList.add('notiles'); mapMsg(); } });
+    let fails = 0, mtFails = 0;
+    ml.on('error', e => {
+      const st = e?.error?.status, url = String(e?.error?.url || ''), msg = String(e?.error?.message || '');
+      // MapTiler refused (bad key, key locked to another address, quota): switch to the free OpenStreetMap map instead of a blank screen
+      if (S.mapKey && !w._fellBack && (/maptiler/.test(url) || /maptiler/.test(msg) || st === 401 || st === 403 || !w._ready) && (++mtFails >= (w._ready ? 3 : 1))){
+        w._fellBack = true; S.mapFail = (st ? st + ' ' : '') + (st === 403 ? 'key not allowed for this address' : st === 401 ? 'key not valid' : st === 429 ? 'monthly limit reached' : (msg.slice(0, 80) || 'style didn’t load'));
+        S.mapStatus = 'OpenStreetMap (backup)';
+        ml.setStyle(mapStyle('')); toast('MapTiler map didn’t load (' + S.mapFail + '). Showing the backup map.');
+        return;
+      }
+      if (++fails === 6){ $('#mapwrap')?.classList.add('notiles'); mapMsg(); }
+    });
     return w;
   }
   return { map, layerGroup:group, marker, divIcon, polyline, circleMarker, latLngBounds:bounds, DomEvent:{ stopPropagation(e){ e?.stopPropagation?.(); } } };
