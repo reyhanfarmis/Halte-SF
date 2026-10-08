@@ -342,6 +342,14 @@ body.mapmode main#view{position:fixed;left:0;right:0;top:0;bottom:var(--tabh,cal
 .pc-d{display:flex;gap:10px;align-items:center;flex:none}
 .pc-r{display:flex;flex-direction:column;align-items:center;gap:3px}
 .pc-r b{font:600 14px/1 var(--f-num);color:var(--accent)}
+.kind.park{color:var(--navy-2)}
+:root[data-theme="dark"] .kind.park{color:#8FB8D6}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .kind.park{color:#8FB8D6} }
+.kind.who{color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500}
+.kind.who::before{content:"· "}
+.spotpin.park{background:var(--navy-2);border-radius:50%;transform:none}
+.seg.chips button{font-size:13px;padding:7px 4px}
+.lrow .kind i{width:12px;height:12px}
 .me2{position:relative;display:block;width:20px;height:20px}
 .me2 .halo{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(46,110,214,.16)}
 .me2 .cone{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;transition:transform .2s linear}
@@ -751,7 +759,13 @@ async function loadSpots(){
 const allSpots = () => [...S.community.spots.map(x=>({...x, community:true, mine:S.mine.has(x.id)})), ...S.mySpots.map(x=>({...x, mine:true, local:true})), ...S.spots];
 const spotById = id => allSpots().find(x=>x.id===id);
 function nearestStop(p){ let b=null; for (const s of S.stops){ const d = dist(p, s); if (!b || d < b.d) b = {...s, d}; } return b; }
+const catOf = sp => sp.cat || ((sp.community || sp.local) ? (sp.type==='Park' ? 'park' : 'spot') : 'park');
 function kindLabel(sp){
+  const c = catOf(sp), who = sp.mine ? (sp.local ? 'Only on this phone' : 'Added by you') : sp.community ? 'Shared by a skater' : '';
+  const t = c==='park' ? 'Skatepark' : 'Street spot' + (sp.type && sp.type!=='Other' ? ' · ' + esc(sp.type) : '');
+  return `<span class="kind ${c}"><i></i>${t}</span>${who ? ` <span class="kind who">${who}</span>` : ''}`;
+}
+function kindLabelOld(sp){
   if (sp.community) return `<span class="kind${sp.mine?' mine':''}"><i></i>${sp.mine?'Added by you':'Community spot'}${sp.type?' · '+esc(sp.type):''}</span>`;
   if (sp.local) return `<span class="kind mine"><i></i>Only on this phone${sp.type?' · '+esc(sp.type):''}</span>`;
   return `<span class="kind"><i></i>Skatepark</span>`;
@@ -909,19 +923,20 @@ function renderDyn(){
     const shared = all.filter(h => h.community || h.local), more = all.filter(h => !h.community && !h.local);
     const hcard = h => `<article class="card"><button class="card-h" data-open-hill="${esc(h.id)}"><span class="nm">${esc(h.name)}<br>${h.r ? dhBadge(h.r) : '<span class="kind" style="color:var(--muted)">Measuring route…</span>'}${h.community?` <span class="kind${h.mine?' mine':''}"><i></i>${h.mine?'Added by you':'Community hill'}</span>`:h.local?' <span class="kind mine"><i></i>Only on this phone</span>':''}</span><span class="dist">${fmtAway(h.d, 'spots')}</span></button>
       ${h.r ? `<div class="hstats"><div><b>${h.r.grade}%</b>avg grade</div><div><b>${h.r.length} m</b>long</div><div><b>${Math.round(h.r.drop)} m</b>drop</div></div>` : ''}</article>`;
-    d.innerHTML = all.length ? (shared.length ? `<div class="h">Shared by skaters · ${shared.length}</div>` + shared.map(hcard).join('') : `<div class="note">No shared hills yet. Tap <b>+ Add hill</b> to share your line.</div>`)
+    d.innerHTML = all.length ? (shared.length ? `<div class="h">Shared by skaters · ${shared.length}</div>` + shared.map(hcard).join('') : `<div class="note">No shared hills yet. Tap <b>+ Add</b> to share your line.</div>`)
         + (more.length ? `<div class="h">More SF hills</div>` + more.slice(0, 30).map(hcard).join('') : '')
       : `<div class="note">Loading SF hills… this can take a few seconds the first time.</div>`;
   }
   else if (S.tab==='spots'){
     const q = S.spotQ.trim().toLowerCase();
-    const list = allSpots().filter(x => !q || (x.name+' '+(x.type||'')).toLowerCase().includes(q))
+    const f = S.spotFilter || 'all';
+    const list = allSpots().filter(x => (f==='all' || catOf(x)===f) && (!q || (x.name+' '+(x.type||'')).toLowerCase().includes(q)))
       .map(x => ({...x, d:dist(S.browse.spots || S.here, x)})).sort((a,b)=>a.d-b.d).slice(0, 40);
     d.innerHTML = list.length ? list.map(sp => {
       const ns = S.stops.length ? nearestStop(sp) : null;
       return `<article class="card"><button class="card-h" data-open-spot="${esc(sp.id)}"><span class="nm">${esc(sp.name)}<br>${kindLabel(sp)}</span><span class="dist">${fmtAway(sp.d, 'spots')}</span></button>
         ${ns?`<div class="spot-sub"><span>Closest Muni stop: ${esc(ns.name)} · ${walkMins(ns.d)} min walk</span></div>`:''}</article>`;
-    }).join('') : `<div class="note">${S.spots.length||S.mySpots.length ? 'No spots match that search.' : 'Loading skate spots…'} Tap <b>+ Add spot</b> to save your own street spots.</div>`;
+    }).join('') : `<div class="note">${!allSpots().length ? 'Loading skate spots…' : q ? 'Nothing matches that search.' : f==='spot' ? 'No street spots shared yet.' : f==='park' ? 'No skateparks here yet.' : 'Nothing here yet.'} Tap <b>+ Add</b> to share a street spot or skatepark.</div>`;
   }
   else if (S.tab==='lines'){
     const q = ($('#lq')?.value || '').trim().toLowerCase();
@@ -1204,10 +1219,11 @@ function mapChrome(){
 function skateTop(){
   const seg = `<div class="seg" role="group" aria-label="Show"><button data-seg="spots" aria-pressed="${S.spotSeg!=='hills'}">Spots</button><button data-seg="hills" aria-pressed="${S.spotSeg==='hills'}">Hills</button></div>`;
   if (S.spotSeg==='hills') return seg + (S.mode==='demo' ? '<div class="note"><b>Demo mode.</b> This is a sample hill. The installed app shows every hill skaters have shared.</div>' : '')
-    + `<div class="searchrow"><div class="note" style="flex:1;margin:0">Tap a hill for its profile, ride time and the bus to the top.</div><button class="iconbtn" id="addHill">+ Add hill</button></div>`;
+    + `<div class="searchrow"><div class="note" style="flex:1;margin:0">Tap a hill for its profile, ride time and the bus to the top.</div><button class="iconbtn" data-add-what>+ Add</button></div>`;
   return seg + (S.mode==='demo' ? '<div class="note"><b>Demo mode.</b> These are sample skateparks.</div>' : '')
-    + `<div class="searchrow"><input class="search" id="spq" type="search" placeholder="Search spots" autocomplete="off" aria-label="Search spots" value="${esc(S.spotQ)}"><button class="iconbtn" id="addSpot">+ Add spot</button></div>
-      <div class="h" id="skH">${S.browse.spots ? 'Near the pin' : 'Near you'}</div>`;
+    + `<div class="searchrow"><input class="search" id="spq" type="search" placeholder="Search spots" autocomplete="off" aria-label="Search spots" value="${esc(S.spotQ)}"><button class="iconbtn" data-add-what>+ Add</button></div>
+      <div class="seg chips" role="group" aria-label="Filter">${[['all','All'],['spot','Street spots'],['park','Skateparks']].map(([k,t])=>`<button data-sf="${k}" aria-pressed="${(S.spotFilter||'all')===k}">${t}</button>`).join('')}</div>
+      <div class="h" id="skH">Near you</div>`;
 }
 function fmtAway(d, tab){
   if (!S.browse[tab]) return fmtDist(d);
@@ -1502,11 +1518,12 @@ function drawSpots(){
   if (!S.termsOk) return;
   if (S.map.getZoom() < 12) return;
   const b = S.map.getBounds().pad(0.2);
-  for (const sp of allSpots().filter(x => b.contains([x.lat, x.lon]))){
+  const f = S.spotFilter || 'all';
+  for (const sp of allSpots().filter(x => b.contains([x.lat, x.lon]) && (f==='all' || catOf(x)===f))){
     const foc = sp.id===S.mapSpot;
     L.marker([sp.lat, sp.lon], {
       icon: L.divIcon({className:'', iconSize:[20,20], iconAnchor:[10,10],
-        html:`<span class="spotpin${sp.mine?' mine':''}${foc?' focus':''}"></span>${foc?`<span class="plabel">${esc(sp.name)}</span>`:''}`}),
+        html:`<span class="spotpin ${catOf(sp)}${foc?' focus':''}"></span>${foc?`<span class="plabel">${esc(sp.name)}</span>`:''}`}),
       title: sp.name, alt: sp.name, zIndexOffset: 1500,
     }).on('click', ev => { L.DomEvent.stopPropagation(ev); openSheet({type:'spot', id:sp.id}); }).addTo(S.spotLayer);
   }
@@ -1668,12 +1685,21 @@ function renderSheet(){
   } else if (s.type==='terms'){
     el.innerHTML = `<div class="sheet-h"><h2>Terms & safety<div class="meta">${S.termsOk?'Accepted':'Not accepted yet'} · version ${TERMS_VERSION}</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b"><div class="terms">${TERMS_HTML}</div></div>`;
+  } else if (s.type==='addwhat'){
+    el.innerHTML = `<div class="sheet-h"><h2>What are you adding?<div class="meta">Everything you add is public</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="sheet-b"><div class="linelist">
+        <button class="lrow" data-add-kind="spot"><span class="kind spot"><i></i></span><span class="t">Street spot<span class="m" style="display:block;font-weight:400">Ledges, stairs, rails, gaps, banks</span></span></button>
+        <button class="lrow" data-add-kind="park"><span class="kind park"><i></i></span><span class="t">Skatepark<span class="m" style="display:block;font-weight:400">A park built for skating</span></span></button>
+        <button class="lrow" data-add-kind="hill"><span class="kind" style="color:#5B3FD9"><i></i></span><span class="t">Bomb hill<span class="m" style="display:block;font-weight:400">Drop pins along your line</span></span></button>
+      </div></div>`;
   } else if (s.type==='addspot'){
-    const dr = S.spotDraft || (S.spotDraft = {name:'', type:'Ledge', note:'', lat:null, lon:null});
-    el.innerHTML = `<div class="sheet-h"><h2>Add a spot<div class="meta">Public: everyone using the app will see it</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
+    const dr = S.spotDraft || (S.spotDraft = {name:'', cat:'spot', type:'Ledge', note:'', lat:null, lon:null});
+    const park = dr.cat==='park';
+    el.innerHTML = `<div class="sheet-h"><h2>${park ? 'Add a skatepark' : 'Add a street spot'}<div class="meta">Public: everyone using the app will see it</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
-        <div class="field"><label for="spName">Name</label><input id="spName" value="${esc(dr.name)}" placeholder="e.g. Embarcadero ledges" maxlength="60"></div>
-        <div class="field"><label for="spType">Type</label><select id="spType">${SPOT_TYPES.map(t=>`<option${t===dr.type?' selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="seg" role="group" aria-label="Kind"><button data-add-kind="spot" aria-pressed="${!park}">Street spot</button><button data-add-kind="park" aria-pressed="${park}">Skatepark</button></div>
+        <div class="field"><label for="spName">Name</label><input id="spName" value="${esc(dr.name)}" placeholder="${park ? 'e.g. Potrero del Sol Skatepark' : 'e.g. Embarcadero ledges'}" maxlength="60"></div>
+        ${park ? '' : `<div class="field"><label for="spType">Type</label><select id="spType">${SPOT_TYPES.filter(t=>t!=='Park').map(t=>`<option${t===dr.type?' selected':''}>${t}</option>`).join('')}</select></div>`}
         <div class="field"><label for="spNote">Notes</label><textarea id="spNote" placeholder="Best time to go, security, what to skate" maxlength="300">${esc(dr.note)}</textarea></div>
         <div class="field"><span class="lbl" style="font-weight:600">Location</span>
           <div class="locrow"><button class="iconbtn ghost" id="spHere">${ICON.loc} Use where I am</button><button class="iconbtn ghost" id="spPick">Pick on map</button>
@@ -1808,17 +1834,24 @@ document.addEventListener('click', async e => {
     else { S.mySpots = S.mySpots.filter(x=>x.id!==ds.delSpot); store.set('myspots', S.mySpots); }
     closeSheet(); renderDyn(); drawSpots(); toast('Spot deleted.'); return; }
   if (ds.shareSpot){ const sp = S.mySpots.find(x=>x.id===ds.shareSpot); if (!sp) return; t.disabled = true; t.textContent = 'Sharing…';
-    try { const pub = await post('addspot', {name:sp.name, type:sp.type, note:sp.note, lat:sp.lat, lon:sp.lon, token:S.ownerToken}, 20000);
+    try { const pub = await post('addspot', {name:sp.name, cat:catOf(sp), type:sp.type, note:sp.note, lat:sp.lat, lon:sp.lon, token:S.ownerToken}, 20000);
       rememberMine(pub.id); S.community.spots.unshift(pub); S.mySpots = S.mySpots.filter(x=>x.id!==sp.id); store.set('myspots', S.mySpots);
       toast('Spot shared. Everyone can see it now.'); openSheet({type:'spot', id:pub.id}); renderDyn(); drawSpots();
     } catch (e) { t.disabled = false; t.textContent = 'Share publicly'; toast(e.status===503 ? 'Public sharing isn’t switched on yet.' : (e.message || 'Couldn’t share.')); }
     return; }
   if ('cancelPick' in ds){ S.pickSpot = false; mapMsg(); openSheet({type:'addspot'}); return; }
   if (t.id==='addSpot'){ S.spotDraft = null; openSheet({type:'addspot'}); return; }
+  if ('addWhat' in ds){ openSheet({type:'addwhat'}); return; }
+  if (ds.addKind && ds.addKind!=='hill' && S.sheet?.type==='addspot' && S.spotDraft){ const dr = S.spotDraft;
+    dr.name = $('#spName')?.value ?? dr.name; dr.note = $('#spNote')?.value ?? dr.note; dr.cat = ds.addKind; dr.type = dr.cat==='park' ? 'Park' : (dr.type==='Park' ? 'Ledge' : dr.type); renderSheet(); return; }
+  if (ds.addKind){ if (ds.addKind==='hill'){ S.hillPick = {name:'', pts:[]}; openSheet({type:'addhill'}); }
+    else { S.spotDraft = {name:'', cat:ds.addKind, type:ds.addKind==='park' ? 'Park' : 'Ledge', note:'', lat:null, lon:null}; openSheet({type:'addspot'}); } return; }
+  if (ds.sf){ S.spotFilter = ds.sf; document.querySelectorAll('[data-sf]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.sf===ds.sf)); renderDyn(); drawSpots(); return; }
   if (t.id==='spHere' || t.id==='spPick' || t.id==='spSave'){
-    const dr = S.spotDraft; dr.name = $('#spName').value; dr.type = $('#spType').value; dr.note = $('#spNote').value;
+    const dr = S.spotDraft; dr.name = $('#spName').value; dr.type = dr.cat==='park' ? 'Park' : ($('#spType')?.value || 'Other'); dr.note = $('#spNote').value;
     if (t.id==='spPick'){ S.pickSpot = true; closeSheet(); S.mapLine = null; S.mapVeh = null; S.mapFocus = null; S.mapSpot = null; S.spotSeg = 'spots'; S.tab = 'spots'; S.pos.spots = 'peek'; renderTab(); window.scrollTo(0,0); return; }
     if (t.id==='spHere'){
+      if (S.gps){ dr.lat = +S.gps.lat.toFixed(6); dr.lon = +S.gps.lon.toFixed(6); renderSheet(); toast('Location set to where you are.'); return; }
       if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
       navigator.geolocation.getCurrentPosition(p => { dr.lat = +p.coords.latitude.toFixed(6); dr.lon = +p.coords.longitude.toFixed(6); renderSheet(); toast('Location set to where you are.'); },
         () => toast('Couldn’t get your location. Use Pick on map instead.'), {enableHighAccuracy:true, timeout:10000});
@@ -1826,7 +1859,7 @@ document.addEventListener('click', async e => {
     }
     if (!dr.name.trim()){ toast('Give the spot a name.'); $('#spName').focus(); return; }
     if (dr.lat == null){ toast('Set the location first: use where you are or pick it on the map.'); return; }
-    const draft = {name:dr.name.trim(), type:dr.type, note:dr.note.trim(), lat:dr.lat, lon:dr.lon};
+    const draft = {name:dr.name.trim(), cat:dr.cat || 'spot', type:dr.type, note:dr.note.trim(), lat:dr.lat, lon:dr.lon};
     if (S.mode==='demo'){ const sp = {id:'my-'+Date.now(), ...draft}; S.mySpots.unshift(sp); store.set('myspots', S.mySpots); S.spotDraft = null; toast('Saved on this phone (demo mode).'); openSheet({type:'spot', id:sp.id}); renderDyn(); drawSpots(); return; }
     t.disabled = true; t.textContent = 'Sharing…';
     try {
