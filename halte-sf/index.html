@@ -201,6 +201,19 @@ select{height:42px;border-radius:10px;border:1px solid var(--rule);background:va
 .mapline{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:99px;padding:4px 4px 4px 4px;box-shadow:0 2px 8px rgba(0,0,0,.18);font-weight:600;font-size:13px}
 .mapline button{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2)}
 .maploc{position:absolute;right:10px;bottom:24px;z-index:1001;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.bus{position:relative;display:grid;place-items:center;min-width:30px;height:22px;padding:0 5px;border-radius:7px;background:var(--lc);color:#fff;font:700 13px/1 var(--f-display);letter-spacing:.02em;border:2px solid var(--surface);box-shadow:0 1px 5px rgba(0,0,0,.45);white-space:nowrap}
+.bus.rail{border-radius:11px}
+.bus.cable{border-radius:3px}
+.bus.sel{transform:scale(1.3);box-shadow:0 0 0 4px color-mix(in oklab,var(--accent) 45%,transparent),0 2px 8px rgba(0,0,0,.45)}
+.vb{position:absolute;inset:-9px;pointer-events:none}
+.vb::before{content:"";position:absolute;left:50%;top:0;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid var(--lc)}
+.vcard{display:flex;align-items:flex-start;gap:10px;background:var(--surface);border-radius:12px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,.22);width:100%}
+.vc-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--muted)}
+.vc-t b{color:var(--fg);font-size:14px;overflow-wrap:anywhere}
+.vc-a{display:flex;gap:6px;align-items:center}
+.vc-btn{background:var(--accent);color:var(--on-accent);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600}
+.vc-x{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2)}
+.dep[data-track]{cursor:pointer}
 .sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
 .sheet-actions .iconbtn{height:40px;font-size:14px}
 
@@ -309,7 +322,7 @@ const S = {
   rem: store.get('rem', []),
   set: Object.assign({theme:'system', hue:228, lead:3}, store.get('settings', {})),
   sheet:null, lineFilter:'all', lineData:{},
-  map:null, mapFocus:null, mapLine:null,
+  map:null, mapFocus:null, mapLine:null, mapVeh:null, vehicles:[], vehUpdated:null,
 };
 
 /* ================= UTIL ================= */
@@ -422,7 +435,8 @@ function depRow(stop, g, withBell){
   const L = lineInfo(g.line), a = g.items[0], m = etaMin(a.eta);
   const next = g.items.slice(1,3).map(x=>Math.max(0,etaMin(x.eta)));
   const key = `${stop.id}|${g.line}|${g.dest}|${a.eta}`, on = S.rem.some(r=>r.key===key);
-  return `<div class="dep${withBell?' withbell':''}">
+  const track = a.vehicle ? ` data-track="${esc(a.vehicle)}" data-tline="${esc(g.line)}" data-tdir="${esc(a.dir||'')}"` : '';
+  return `<div class="dep${withBell?' withbell':''}"${track}>
     ${badge(g.line)}
     <div style="min-width:0"><div class="dest">${esc(g.dest || L.name)}</div>
       <div class="sub"><span>${esc(L.name)}</span>${occ(a.occ)}</div></div>
@@ -535,22 +549,58 @@ function lineCoords(id, dir){
   const d = S.lineData[id]?.directions?.find(x=>x.dir===dir) || S.lineData[id]?.directions?.[0];
   return (d?.stops || []).map(s=>stopById(s.id)).filter(s=>s && s.lat);
 }
+const selVeh = () => S.mapVeh && S.vehicles.find(v=>v.vehicle===S.mapVeh.vehicle && v.line===S.mapVeh.line);
+function agoText(d){ if (!d) return ''; const s = Math.max(0, Math.round((Date.now()-d)/1000)); return s < 60 ? `${s}s ago` : `${Math.round(s/60)} min ago`; }
+
+function demoVehicles(){
+  const t = Date.now()/60000, out = [];
+  DEMO_STOPS.forEach((s,i) => s.serves.slice(0,2).forEach(([l,d],k) => {
+    const ph = ((t/(4+k) + i*0.37) % 1) * 2*Math.PI, r = 0.0022, L_ = DEMO_LINES.find(x=>x[0]===l);
+    out.push({line:l, dir:d, dest:L_[3][d], vehicle:`${l}-${1200+i*3+k}`,
+      lat:s.lat + Math.sin(ph)*r, lon:s.lon + Math.cos(ph)*r*1.3, bearing:Math.round((450 - ph*180/Math.PI) % 360),
+      nextStop:s.id, eta:new Date(Date.now() + ((i+k)%7+1)*60000).toISOString(), occ:['seatsAvailable','standingAvailable'][k%2]});
+  }));
+  return out;
+}
+async function loadVehicles(){
+  if (S.mode==='demo'){ S.vehicles = demoVehicles(); S.vehUpdated = new Date(); }
+  else { try { const r = await api('vehicles'); S.vehicles = r.vehicles || []; S.vehUpdated = new Date(r.updated); } catch {} }
+  if (S.centerVeh && S.map){
+    S.centerVeh = false; const v = selVeh();
+    if (v && v.lat != null) S.map.setView([v.lat, v.lon], 16);
+    else { const st = S.mapVeh && S.vehicles.find(x=>x.vehicle===S.mapVeh.vehicle)?.nextStop;
+      toast('Live location isn’t available for this trip right now.'); }
+  }
+  drawVehicles(); drawLine(); mapMsg();
+}
+
 function mapMsg(){
   const top = $('#maptop'); if (!top) return;
   const parts = [];
-  if (S.mapLine){ const L = lineInfo(S.mapLine.id);
-    parts.push(`<div class="mapline">${badge(L.id,true)}<span>${esc(L.name)}</span><button data-clear-line aria-label="Hide route">${ICON.close}</button></div>`); }
+  const v = selVeh();
+  if (v){
+    const L_ = lineInfo(v.line), st = stopById(v.nextStop), m = etaMin(v.eta);
+    parts.push(`<div class="vcard">${badge(L_.id,true)}<div class="vc-t"><b>To ${esc(v.dest || L_.name)}</b>
+      <span>Next stop: ${esc(st?.name || '—')} · ${m<=0?'now':m+' min'}</span>
+      <span>${v.occ && OCC[v.occ] ? OCC[v.occ][0]+' · ' : ''}GPS ${agoText(S.vehUpdated)}</span></div>
+      <div class="vc-a">${S.mapLine?.id===v.line?'':`<button class="vc-btn" data-veh-route="${esc(v.line)}" data-veh-dir="${esc(v.dir||'')}">Route</button>`}
+      <button class="vc-x" data-clear-veh aria-label="Close">${ICON.close}</button></div></div>`);
+  } else if (S.mapLine){ const L_ = lineInfo(S.mapLine.id);
+    parts.push(`<div class="mapline">${badge(L_.id,true)}<span>${esc(L_.name)}</span><button data-clear-line aria-label="Hide route">${ICON.close}</button></div>`); }
   if ($('#mapwrap')?.classList.contains('notiles'))
-    parts.push(`<div class="mapmsg">Street map can’t load in this preview. Stop positions are still accurate, and the full street map appears in the installed version.</div>`);
-  else if (S.mode==='live' && S.map && S.map.getZoom() < 15)
+    parts.push(`<div class="mapmsg">Street map can’t load in this preview. Stop and vehicle positions are still accurate, and the full street map appears in the installed version.</div>`);
+  else if (S.map && S.map.getZoom() < 13 && !S.mapLine)
+    parts.push(`<div class="mapmsg">Zoom in to see vehicles and stops.</div>`);
+  else if (S.mode==='live' && S.map && S.map.getZoom() < 15 && !v)
     parts.push(`<div class="mapmsg">Zoom in to see stops.</div>`);
   top.innerHTML = parts.join('');
 }
 function initMap(){
   if (!window.L){ $('#map').innerHTML = '<div class="note" style="margin:12px">The map couldn’t load. Check your connection and open this tab again.</div>'; return; }
   const focus = S.mapFocus && stopById(S.mapFocus);
+  const v0 = selVeh();
   const m = L.map('map', {zoomControl:true, attributionControl:true})
-    .setView(focus ? [focus.lat, focus.lon] : [S.here.lat, S.here.lon], focus ? 17 : 16);
+    .setView(v0?.lat!=null ? [v0.lat, v0.lon] : focus ? [focus.lat, focus.lon] : [S.here.lat, S.here.lon], v0 || focus ? 16 : 16);
   m.attributionControl.setPrefix(false);
   S.map = m;
   let fails = 0;
@@ -560,9 +610,11 @@ function initMap(){
   }).on('tileerror', () => { if (++fails === 2){ $('#mapwrap')?.classList.add('notiles'); mapMsg(); } }).addTo(m);
   S.stopLayer = L.layerGroup().addTo(m);
   S.lineLayer = L.layerGroup().addTo(m);
+  S.vehLayer = L.layerGroup().addTo(m);
   L.marker([S.here.lat, S.here.lon], {icon:L.divIcon({className:'', html:'<span class="me"></span>', iconSize:[18,18], iconAnchor:[9,9]}), interactive:false, keyboard:false}).addTo(m);
-  m.on('moveend', drawStops);
-  drawLine(); drawStops();
+  m.on('moveend', () => { drawStops(); drawVehicles(); });
+  m.on('click', () => { if (S.mapVeh){ S.mapVeh = null; drawVehicles(); mapMsg(); } });
+  drawLine(); drawStops(); drawVehicles(); loadVehicles();
 }
 function drawStops(){
   if (!S.map) return;
@@ -580,20 +632,47 @@ function drawStops(){
     }).on('click', () => openSheet({type:'stop', id:s.id})).addTo(S.stopLayer);
   }
 }
+function drawVehicles(){
+  if (!S.map || !S.vehLayer) return;
+  S.vehLayer.clearLayers();
+  let list = S.vehicles.filter(v => v.lat != null);
+  if (S.mapLine) list = list.filter(v => v.line===S.mapLine.id);
+  else {
+    if (S.map.getZoom() < 13) list = list.filter(v => S.mapVeh && v.vehicle===S.mapVeh.vehicle);
+    const b = S.map.getBounds().pad(0.2); list = list.filter(v => b.contains([v.lat, v.lon]));
+  }
+  for (const v of list.slice(0, 400)){
+    const L_ = lineInfo(v.line), sel = S.mapVeh && S.mapVeh.vehicle===v.vehicle && S.mapVeh.line===v.line;
+    const arrow = v.bearing != null ? `<i class="vb" style="transform:rotate(${v.bearing}deg)"></i>` : '';
+    L.marker([v.lat, v.lon], {
+      icon: L.divIcon({className:'', iconSize:[32,22], iconAnchor:[16,11],
+        html:`<span class="bus ${L_.mode}${sel?' sel':''}" style="--lc:${lineColor(L_)}">${arrow}${esc(L_.code)}</span>`}),
+      title:`${L_.code} to ${v.dest || ''}`, alt:`Route ${L_.code} vehicle`, zIndexOffset: sel ? 3000 : 2000,
+    }).on('click', ev => { L.DomEvent.stopPropagation(ev); S.mapVeh = {line:v.line, vehicle:v.vehicle}; drawVehicles(); mapMsg(); }).addTo(S.vehLayer);
+  }
+}
 function drawLine(){
-  if (!S.map || !S.mapLine) return;
+  if (!S.map || !S.lineLayer) return;
   S.lineLayer.clearLayers();
+  if (!S.mapLine) return;
   const {id, dir} = S.mapLine, pts = lineCoords(id, dir), color = lineColor(lineInfo(id));
   if (pts.length < 2) return;
-  L.polyline(pts.map(p=>[p.lat,p.lon]), {color, weight:6, opacity:.9, lineCap:'round', lineJoin:'round', interactive:false}).addTo(S.lineLayer);
-  for (const v of (S.lineData[id]?.vehicles || []).filter(v=>!v.dir || v.dir===dir)){
-    const st = stopById(v.nextStop); if (!st) continue;
-    L.marker([st.lat, st.lon], {icon:L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,30],
-      html:`<span class="vdot" style="--lc:${color}">${ICON.veh}</span>`}), interactive:false, keyboard:false}).addTo(S.lineLayer);
+  L.polyline(pts.map(p=>[p.lat,p.lon]), {color, weight:6, opacity:.85, lineCap:'round', lineJoin:'round', interactive:false}).addTo(S.lineLayer);
+  if (!S.vehicles.some(v => v.line===id && v.lat != null)){ // no GPS: fall back to "heading to this stop" markers
+    for (const v of (S.lineData[id]?.vehicles || []).filter(v=>!v.dir || v.dir===dir)){
+      const st = stopById(v.nextStop); if (!st) continue;
+      L.marker([st.lat, st.lon], {icon:L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,30],
+        html:`<span class="vdot" style="--lc:${color}">${ICON.veh}</span>`}), interactive:false, keyboard:false}).addTo(S.lineLayer);
+    }
   }
-  if (!S.mapFocus) S.map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lon])), {padding:[30,30]});
+  if (!S.mapFocus && !S.mapVeh && !S.lineFitted){ S.lineFitted = true; S.map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lon])), {padding:[30,30]}); }
 }
-function showOnMap(opts){ S.mapFocus = opts.stop || null; S.mapLine = opts.line || null; closeSheet(); S.tab = 'map'; renderTab(); window.scrollTo(0,0); }
+async function showOnMap(opts){
+  S.mapFocus = opts.stop || null; S.mapLine = opts.line || null; S.mapVeh = opts.veh || null;
+  S.centerVeh = !!opts.veh; S.lineFitted = false;
+  closeSheet(); S.tab = 'map'; renderTab(); window.scrollTo(0,0);
+  if (S.mapLine && !S.lineData[S.mapLine.id]){ await loadLine(S.mapLine.id); drawLine(); }
+}
 
 /* ================= SHEET ================= */
 function openSheet(s){ S.sheet = s; $('#scrim').hidden = false; $('#sheet').hidden = false; renderSheet();
@@ -618,7 +697,7 @@ function renderSheet(){
         <button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">${st.lat?`<div class="sheet-actions"><button class="iconbtn ghost" data-map-stop="${esc(st.id)}">${ICON.loc} Show on map</button></div>`:''}
       <div class="card">${S.arr[st.id]===undefined?'<div class="empty" style="padding-top:12px">Loading…</div>': gs.length ? gs.map(g=>depRow(st,g,true)).join('') : '<div class="empty" style="padding-top:12px">No arrivals in the next 90 minutes.</div>'}</div>
-      <div class="note">Green times with a signal icon are tracked live. “Scheduled” means the time comes from the timetable.</div></div>`;
+      <div class="note">Green times with a signal icon are tracked live. “Scheduled” means the time comes from the timetable. Tap a departure to see that vehicle on the map.</div></div>`;
   } else {
     const L = lineInfo(s.id), data = S.lineData[s.id], color = lineColor(L);
     let body;
@@ -664,13 +743,16 @@ function checkReminders(){
 
 /* ================= INTERACTION ================= */
 document.addEventListener('click', async e => {
-  const t = e.target.closest('button, .scrim'); if (!t) return;
+  const t = e.target.closest('button, .scrim, [data-track]'); if (!t) return;
   const ds = t.dataset;
   if (ds.tab){ if (ds.tab==='map'){ S.mapFocus = null; S.mapLine = null; }
     S.tab = ds.tab; renderTab(); window.scrollTo(0,0); if (ds.tab!=='settings' && ds.tab!=='map') refreshArrivals(); return; }
   if (ds.mapStop){ showOnMap({stop:ds.mapStop}); return; }
   if (ds.mapLine){ showOnMap({line:{id:ds.mapLine, dir:ds.mapDir}}); return; }
-  if ('clearLine' in ds){ S.mapLine = null; S.lineLayer?.clearLayers(); mapMsg(); return; }
+  if ('clearLine' in ds){ S.mapLine = null; S.lineLayer?.clearLayers(); drawVehicles(); mapMsg(); return; }
+  if (ds.track){ showOnMap({veh:{line:ds.tline, vehicle:ds.track}, line:{id:ds.tline, dir:ds.tdir}}); return; }
+  if (ds.vehRoute){ S.mapLine = {id:ds.vehRoute, dir:ds.vehDir}; S.lineFitted = true; if (!S.lineData[ds.vehRoute]) await loadLine(ds.vehRoute); drawLine(); drawVehicles(); mapMsg(); return; }
+  if ('clearVeh' in ds){ S.mapVeh = null; drawVehicles(); mapMsg(); return; }
   if (t.id==='mapLoc'){ S.map?.setView([S.here.lat, S.here.lon], 16); return; }
   if (t.id==='scrim' || 'close' in ds){ closeSheet(); return; }
   if (ds.openStop){ openSheet({type:'stop', id:ds.openStop}); return; }
@@ -729,7 +811,7 @@ async function boot(){
   try { await loadBase(); } catch { S.mode = 'demo'; await loadBase(); toast('The data server isn’t ready, so sample data is shown.'); }
   renderTab(); refreshArrivals();
   setInterval(refreshArrivals, S.mode==='live' ? 60000 : 30000);
-  setInterval(() => { renderDyn(); if (S.sheet) renderSheet(); checkReminders(); }, 15000);
+  setInterval(() => { renderDyn(); if (S.sheet) renderSheet(); checkReminders(); if (S.tab==='map' && !document.hidden) loadVehicles(); }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshArrivals(); });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
