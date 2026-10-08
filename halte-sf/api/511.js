@@ -521,13 +521,14 @@ const bust = () => mem.delete("community");
 
 async function addSpot(body, ip) {
   const name = cleanText(body.name, 60), note = cleanText(body.note, 300);
-  const type = SPOT_TYPES_OK.includes(body.type) ? body.type : "Other";
+  const cat = body.cat === "park" ? "park" : "spot"; // skatepark or street spot
+  const type = cat === "park" ? "Park" : SPOT_TYPES_OK.includes(body.type) ? body.type : "Other";
   const p = { lat: +body.lat, lon: +body.lon };
   if (name.length < 2) throw Object.assign(new Error("Give the spot a name."), { status: 400 });
   if (!inSF(p)) throw Object.assign(new Error("Spots must be in San Francisco."), { status: 400 });
   if (!body.token || String(body.token).length < 16) throw Object.assign(new Error("Missing device token."), { status: 400 });
   await rateLimit(ip, "add", 10);
-  const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "spot", name, type, note, lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), created: new Date().toISOString(), owner: sha(body.token), reporters: [] };
+  const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "spot", cat, name, type, note, lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), created: new Date().toISOString(), owner: sha(body.token), reporters: [] };
   await redis("HSET", "c:spots", item.id, JSON.stringify(item));
   bust();
   return publicView(item);
