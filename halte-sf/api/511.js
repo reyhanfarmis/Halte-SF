@@ -1,3 +1,5 @@
+// Copy-pasted keys often carry a stray space or newline; strip them once for every setting.
+for (const k of Object.keys(process.env)) if (typeof process.env[k] === "string") process.env[k] = process.env[k].trim();
 // Small caching proxy for the 511.org API: Muni (agency "SF") and BART (agency "BA").
 // Runs as a Vercel Serverless Function at /api/511?ep=...
 // The API key lives in the API_511_KEY environment variable and is never sent to phones.
