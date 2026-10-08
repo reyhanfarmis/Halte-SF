@@ -1,19 +1,22 @@
-// Small caching proxy for the 511.org API (Muni / agency "SF").
+// Small caching proxy for the 511.org API: Muni (agency "SF") and BART (agency "BA").
 // Runs as a Vercel Serverless Function at /api/511?ep=...
 // The API key lives in the API_511_KEY environment variable and is never sent to phones.
 //
 // Why a proxy: 511's default limit is only ~60 requests/hour per key.
-// This proxy fetches ALL Muni arrival predictions in one call
-// (StopMonitoring with no stopcode), keeps them for 75 seconds, and shares them
-// with every user. More users never means more quota used.
+// This proxy fetches ALL arrival predictions per agency in one call
+// (StopMonitoring with no stopcode), caches them, and shares them with every user.
+// Budget: Muni every 100 s (36/h) + BART every 180 s (20/h) + alerts every 15 min (8/h).
+// More users never means more quota used. Ask transitdata@511.org for a higher limit to refresh faster.
 
 const KEY = process.env.API_511_KEY;
-const AGENCY = process.env.AGENCY || "SF";
+const AGENCY = "SF"; // Muni: ids are used as-is
+const BART = "BA"; // BART: stop and line ids are prefixed "BA:" so they never collide with Muni
 const BASE = "https://api.511.org/transit/";
 
 const TTL = {
-  arrivals: 75, // ~48 calls/hour
-  alerts: 600, // 6 calls/hour
+  arrivals: 100, // Muni, ~36 calls/hour
+  arrivalsBart: 180, // BART, ~20 calls/hour
+  alerts: 900, // 4 calls/hour per agency
   stops: 86400,
   lines: 86400,
   pattern: 86400,
@@ -73,28 +76,39 @@ function modeOf(m) {
   return "bus";
 }
 
-function slimLines(json) {
-  return arr(json).map((l) => ({
-    id: ci(l, "Id"),
-    code: ci(l, "PublicCode") || ci(l, "Id"),
-    name: String(ci(l, "Name") || "").replace(/\b\w+/g, (w) => w[0] + w.slice(1).toLowerCase()),
-    mode: modeOf(ci(l, "TransportMode")),
-  }));
+const pre = (ag, id) => (id == null || id === "" ? id : ag === AGENCY ? id : ag + ":" + id);
+const BART_COLORS = ["Yellow", "Red", "Green", "Blue", "Orange", "Grey", "Gray", "Beige", "Purple"];
+
+function slimLines(json, ag = AGENCY) {
+  return arr(json).map((l) => {
+    const id = ci(l, "Id"), name = String(ci(l, "Name") || "");
+    if (ag === BART) {
+      const color = BART_COLORS.find((c) => new RegExp(c, "i").test(id + " " + name)) || "";
+      return { id: pre(ag, id), code: color ? color[0] : String(ci(l, "PublicCode") || id).slice(0, 3), name: name || id, mode: "bart", color: color.toLowerCase() };
+    }
+    return {
+      id,
+      code: ci(l, "PublicCode") || id,
+      name: name.replace(/\b\w+/g, (w) => w[0] + w.slice(1).toLowerCase()),
+      mode: modeOf(ci(l, "TransportMode")),
+    };
+  });
 }
 
-function slimStops(json) {
+function slimStops(json, ag = AGENCY) {
   const list = arr(ci(json, "Contents", "dataObjects", "ScheduledStopPoint"));
   return list
     .map((s) => ({
-      id: ci(s, "id"),
-      name: ci(s, "Name"),
+      id: pre(ag, ci(s, "id")),
+      name: ag === BART ? String(ci(s, "Name") || "").replace(/\s*BART$/i, "") + " BART" : ci(s, "Name"),
+      ...(ag === BART ? { agency: "bart" } : {}),
       lat: +ci(s, "Location", "Latitude"),
       lon: +ci(s, "Location", "Longitude"),
     }))
     .filter((s) => s.id && isFinite(s.lat) && isFinite(s.lon));
 }
 
-function indexArrivals(json) {
+function indexArrivals(json, ag = AGENCY) {
   const delivery = arr(ci(json, "ServiceDelivery", "StopMonitoringDelivery"))[0];
   const visits = arr(ci(delivery, "MonitoredStopVisit"));
   const byStop = {};
@@ -103,11 +117,11 @@ function indexArrivals(json) {
   for (const v of visits) {
     const j = ci(v, "MonitoredVehicleJourney") || {};
     const call = ci(j, "MonitoredCall") || {};
-    const stop = ci(v, "MonitoringRef") || ci(call, "StopPointRef");
+    const stop = pre(ag, ci(v, "MonitoringRef") || ci(call, "StopPointRef"));
     const eta = ci(call, "ExpectedArrivalTime") || ci(call, "ExpectedDepartureTime") || ci(call, "AimedArrivalTime") || ci(call, "AimedDepartureTime");
     if (!stop || !eta) continue;
     const a = {
-      line: ci(j, "LineRef"),
+      line: pre(ag, ci(j, "LineRef")),
       dest: txt(ci(j, "DestinationName")),
       dir: ci(j, "DirectionRef"),
       eta,
@@ -137,7 +151,7 @@ function indexArrivals(json) {
   return { updated: new Date().toISOString(), byStop, byVehicle, vehicles: Object.values(byLine) };
 }
 
-function slimPatterns(json) {
+function slimPatterns(json, ag = AGENCY) {
   const pats = arr(ci(json, "journeyPatterns"));
   const best = {};
   for (const p of pats) {
@@ -146,7 +160,7 @@ function slimPatterns(json) {
       ...arr(ci(p, "PointsInSequence", "StopPointInJourneyPattern")),
       ...arr(ci(p, "PointsInSequence", "TimingPointInJourneyPattern")),
     ]
-      .map((s) => ({ order: +ci(s, "Order"), id: ci(s, "ScheduledStopPointRef"), name: ci(s, "Name") }))
+      .map((s) => ({ order: +ci(s, "Order"), id: pre(ag, ci(s, "ScheduledStopPointRef")), name: ci(s, "Name") }))
       .sort((a, b) => a.order - b.order);
     if (!best[dir] || pts.length > best[dir].stops.length) {
       best[dir] = { dir, name: ci(p, "Name") || dir, stops: pts.map(({ id, name }) => ({ id, name })) };
@@ -155,7 +169,7 @@ function slimPatterns(json) {
   return Object.values(best);
 }
 
-function slimAlerts(json) {
+function slimAlerts(json, ag = AGENCY) {
   const ents = arr(ci(json, "Entities") ?? ci(json, "entity"));
   const t = (x) => {
     const tr = arr(ci(x, "Translations") ?? ci(x, "translation"));
@@ -165,13 +179,71 @@ function slimAlerts(json) {
   return ents
     .map((e) => {
       const a = ci(e, "Alert") || {};
-      const lines = [...new Set(arr(ci(a, "InformedEntities") ?? ci(a, "informed_entity")).map((x) => ci(x, "RouteId") ?? ci(x, "route_id")).filter(Boolean))];
-      return { id: ci(e, "Id") || ci(e, "id"), title: t(ci(a, "HeaderText") ?? ci(a, "header_text")), body: t(ci(a, "DescriptionText") ?? ci(a, "description_text")), lines };
+      const lines = [...new Set(arr(ci(a, "InformedEntities") ?? ci(a, "informed_entity")).map((x) => ci(x, "RouteId") ?? ci(x, "route_id")).filter(Boolean).map((r) => pre(ag, r)))];
+      return { id: pre(ag, ci(e, "Id") || ci(e, "id")), agency: ag === BART ? "bart" : "muni", title: t(ci(a, "HeaderText") ?? ci(a, "header_text")), body: t(ci(a, "DescriptionText") ?? ci(a, "description_text")), lines };
     })
     .filter((a) => a.title);
 }
 
-// ---------- skate spots (OpenStreetMap, © OpenStreetMap contributors, ODbL) ----------
+// ---------- combined Muni + BART data ----------
+
+async function allArrivals() {
+  const [sf, ba] = await Promise.all([
+    get511("StopMonitoring", { agency: AGENCY }, TTL.arrivals, (j) => indexArrivals(j, AGENCY)),
+    get511("StopMonitoring", { agency: BART }, TTL.arrivalsBart, (j) => indexArrivals(j, BART)).catch(() => null),
+  ]);
+  if (!ba) return sf;
+  return {
+    updated: sf.updated,
+    byStop: { ...sf.byStop, ...ba.byStop },
+    byVehicle: { ...sf.byVehicle, ...ba.byVehicle },
+    vehicles: [...sf.vehicles, ...ba.vehicles],
+  };
+}
+async function allStops() {
+  const [sf, ba] = await Promise.all([
+    get511("stops", { operator_id: AGENCY }, TTL.stops, (j) => slimStops(j, AGENCY)),
+    get511("stops", { operator_id: BART }, TTL.stops, (j) => slimStops(j, BART)).catch(() => []),
+  ]);
+  return [...sf, ...ba];
+}
+async function allLines() {
+  const [sf, ba] = await Promise.all([
+    get511("lines", { operator_id: AGENCY }, TTL.lines, (j) => slimLines(j, AGENCY)),
+    get511("lines", { operator_id: BART }, TTL.lines, (j) => slimLines(j, BART)).catch(() => []),
+  ]);
+  return [...sf, ...ba];
+}
+async function allAlerts() {
+  const [sf, ba] = await Promise.all([
+    get511("servicealerts", { agency: AGENCY }, TTL.alerts, (j) => slimAlerts(j, AGENCY)).catch(() => []),
+    get511("servicealerts", { agency: BART }, TTL.alerts, (j) => slimAlerts(j, BART)).catch(() => []),
+  ]);
+  return [...sf, ...ba];
+}
+
+// ---------- OpenStreetMap (Overpass) with backup servers ----------
+
+const OVERPASS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
+async function overpass(q) {
+  let last;
+  for (const url of OVERPASS) {
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "HalteSF/1.0 (personal transit app)" },
+        body: "data=" + encodeURIComponent(q),
+      });
+      if (r.ok) return await r.json();
+      last = new Error("OpenStreetMap responded " + r.status);
+    } catch (e) { last = e; }
+  }
+  throw Object.assign(last || new Error("OpenStreetMap unavailable"), { status: 502 });
+}
 
 async function cached(key, ttl, fn) {
   const c = mem.get(key);
@@ -190,16 +262,11 @@ async function cached(key, ttl, fn) {
   }
 }
 
+// ---------- skate spots (© OpenStreetMap contributors, ODbL) ----------
+
 const SF_BBOX = "37.70,-122.53,37.84,-122.35";
 async function fetchSkateSpots() {
-  const q = `[out:json][timeout:25];(nwr["sport"="skateboard"](${SF_BBOX});nwr["leisure"="skatepark"](${SF_BBOX}););out center tags;`;
-  const r = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "HalteSF/1.0 (personal Muni app)" },
-    body: "data=" + encodeURIComponent(q),
-  });
-  if (!r.ok) throw Object.assign(new Error("OpenStreetMap responded " + r.status), { status: r.status });
-  const j = await r.json();
+  const j = await overpass(`[out:json][timeout:25];(nwr["sport"="skateboard"](${SF_BBOX});nwr["leisure"="skatepark"](${SF_BBOX}););out center tags;`);
   const seen = new Set();
   const out = [];
   for (const e of j.elements || []) {
@@ -210,15 +277,15 @@ async function fetchSkateSpots() {
     const key = name + "|" + Math.round(lat * 500) + "|" + Math.round(lon * 500); // merge pieces of the same park
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ id: "osm-" + e.type[0] + e.id, name, lat: +(+lat).toFixed(6), lon: +(+lon).toFixed(6), kind: "park", lit: t.lit || "", surface: t.surface || "" });
+    out.push({ id: "osm-" + e.type[0] + e.id, name, lat: +(+lat).toFixed(6), lon: +(+lon).toFixed(6), kind: "park" });
   }
   return out;
 }
 
-// ---------- bomb hills: grade from USGS elevation, intersections from OpenStreetMap ----------
+// ---------- hills: start/finish, street-following route, elevation profile ----------
 
-// Well-known steep SF blocks: [hill street, one end cross street, other end cross street] (OSM name regexes).
-// Top/bottom and grade are measured, not hard-coded.
+// Well-known steep SF blocks: [street, cross street at one end, cross street at the other end] (OSM name regexes).
+// Which end is the start (top) is decided by measured elevation.
 const HILLS = [
   ["^Filbert Street$", "^Hyde Street$", "^Leavenworth Street$"],
   ["^22nd Street$", "^Church Street$", "^Vicksburg Street$"],
@@ -233,66 +300,13 @@ const HILLS = [
   ["^Divisadero Street$", "^Broadway$", "^Pacific Avenue$"],
   ["^Clipper Street$", "^Douglass Street$", "^Diamond Street$"],
 ];
-const OSM_BBOX = "37.70,-122.53,37.84,-122.35";
 
-async function overpass(q) {
-  const r = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "HalteSF/1.0 (personal Muni app)" },
-    body: "data=" + encodeURIComponent(q),
-  });
-  if (!r.ok) throw Object.assign(new Error("OpenStreetMap responded " + r.status), { status: r.status });
-  return r.json();
-}
-
-async function elevation(p) {
-  try { // USGS 3DEP (lidar, ~1 m in SF)
-    const r = await fetch(`https://epqs.nationalmap.gov/v1/json?x=${p.lon}&y=${p.lat}&units=Meters&wkid=4326&includeDate=false`);
-    if (r.ok) { const j = await r.json(); const v = +j.value; if (isFinite(v) && v > -100) return { m: v, src: "USGS" }; }
-  } catch {}
-  const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${p.lat}&longitude=${p.lon}`); // fallback, ~90 m DEM
-  const j = await r.json();
-  return { m: +j.elevation[0], src: "Copernicus DEM" };
-}
-
-const BIG_ROADS = new Set(["primary", "secondary", "trunk", "primary_link", "secondary_link"]);
-function describeEnd(node, ways, hillName) {
-  const t = node?.tags || {};
-  const cross = ways.find((w) => w.tags?.name && w.tags.name !== hillName) || null;
-  return {
-    control: t.highway === "traffic_signals" ? "signal" : t.highway === "stop" || t.stop ? "stop" : "none",
-    cross: cross?.tags?.name || "",
-    crossBusy: !!(cross && BIG_ROADS.has(cross.tags.highway)),
-  };
-}
-
-function rateHill(h) {
-  const level = h.grade >= 18 ? "Extreme" : h.grade >= 12 ? "Expert" : h.grade >= 7 ? "Advanced" : "Mellow";
-  const warnings = [];
-  if (h.grade >= 18) warnings.push("Grade this steep is beyond what most riders can control or stop on.");
-  if (h.bottom.control === "signal") warnings.push(`Ends at a traffic light at ${h.bottom.cross || "the bottom"}.`);
-  else if (h.bottom.control === "stop") warnings.push(`Stop sign at the bottom${h.bottom.cross ? " (" + h.bottom.cross + ")" : ""}. You must be able to stop.`);
-  else warnings.push("No stop sign or signal mapped at the bottom. Cross traffic may not stop for you.");
-  if (h.bottom.crossBusy) warnings.push(`${h.bottom.cross} is a busy street.`);
-  if (h.street.busy) warnings.push("The hill itself is a busy street.");
-  return { level, warnings };
-}
-
-async function measureHill(top, bottom, extra = {}) {
-  const [e1, e2] = await Promise.all([elevation(top), elevation(bottom)]);
-  let a = { ...top, elev: e1.m }, b = { ...bottom, elev: e2.m };
-  if (b.elev > a.elev) [a, b] = [b, a]; // top is the higher end
-  const length = metres(a, b);
-  const drop = a.elev - b.elev;
-  return { top: a, bottom: b, length: Math.round(length), drop: +drop.toFixed(1), grade: length ? +((drop / length) * 100).toFixed(1) : 0, elevSource: e1.src, ...extra };
-}
-
-async function fetchHills() {
-  // One Overpass call: for each hill end, the intersection node and the ways through it, separated by markers.
+async function fetchHillList() {
+  // One Overpass call: the intersection node at each end, separated by marker elements.
   let q = "[out:json][timeout:60];";
   HILLS.forEach(([st, x1, x2], i) => {
     for (const [k, x] of [["a", x1], ["b", x2]]) {
-      q += `way["name"~"${st}"](${OSM_BBOX})->.s;way["name"~"${x}"](${OSM_BBOX})->.c;node(w.s)(w.c)->.n;.n out tags;way(bn.n)["highway"];out tags;make m i=${i},e=${k};out;`;
+      q += `way["name"~"${st}"](${SF_BBOX})->.s;way["name"~"${x}"](${SF_BBOX})->.c;node(w.s)(w.c);out;make m i=${i},e=${k};out;`;
     }
   });
   const j = await overpass(q);
@@ -301,49 +315,119 @@ async function fetchHills() {
   for (const el of j.elements || []) {
     if (el.type === "m") { parts[el.tags.i + el.tags.e] = buf; buf = []; } else buf.push(el);
   }
+  const clean = (r) => r.replace(/[\^$]/g, "");
   const out = [];
-  for (let i = 0; i < HILLS.length; i++) {
-    const A = parts[i + "a"] || [], B = parts[i + "b"] || [];
-    const na = A.find((e) => e.type === "node"), nb = B.find((e) => e.type === "node");
-    if (!na || !nb) continue;
-    const waysA = A.filter((e) => e.type === "way"), waysB = B.filter((e) => e.type === "way");
-    const hillWay = [...waysA, ...waysB].find((w) => new RegExp(HILLS[i][0]).test(w.tags?.name || ""));
-    const hillName = hillWay?.tags?.name || HILLS[i][0].replace(/[\^$]/g, "");
-    try {
-      const h = await measureHill({ lat: na.lat, lon: na.lon, _end: "a" }, { lat: nb.lat, lon: nb.lon, _end: "b" });
-      const topIsA = h.top._end === "a";
-      const endTop = describeEnd(topIsA ? na : nb, topIsA ? waysA : waysB, hillName);
-      const endBot = describeEnd(topIsA ? nb : na, topIsA ? waysB : waysA, hillName);
-      const hill = {
-        id: "h" + i, name: `${hillName} (${endTop.cross || "?"} → ${endBot.cross || "?"})`,
-        street: { name: hillName, busy: BIG_ROADS.has(hillWay?.tags?.highway) },
-        top: { lat: h.top.lat, lon: h.top.lon, elev: h.top.elev, cross: endTop.cross },
-        bottom: { lat: h.bottom.lat, lon: h.bottom.lon, elev: h.bottom.elev, ...endBot },
-        length: h.length, drop: h.drop, grade: h.grade, elevSource: h.elevSource,
-      };
-      out.push({ ...hill, ...rateHill(hill) });
-    } catch {}
-  }
-  return out.sort((a, b) => a.grade - b.grade);
+  HILLS.forEach(([st, x1, x2], i) => {
+    const na = (parts[i + "a"] || [])[0], nb = (parts[i + "b"] || [])[0];
+    if (!na || !nb) return;
+    out.push({ id: "h" + i, street: clean(st), a: { lat: na.lat, lon: na.lon, cross: clean(x1) }, b: { lat: nb.lat, lon: nb.lon, cross: clean(x2) } });
+  });
+  return out;
 }
 
-async function measureCustomHill(p1, p2) {
-  const h = await measureHill(p1, p2);
-  // what's at the bottom: signals/stop signs and streets within 30 m
-  let bottom = { control: "none", cross: "", crossBusy: false };
-  try {
-    const j = await overpass(`[out:json][timeout:20];(node(around:30,${h.bottom.lat},${h.bottom.lon})["highway"~"traffic_signals|stop"];way(around:25,${h.bottom.lat},${h.bottom.lon})["highway"]["name"];);out tags;`);
-    const els = j.elements || [];
-    const ctl = els.find((e) => e.type === "node");
-    const ways = els.filter((e) => e.type === "way");
-    bottom = {
-      control: ctl?.tags?.highway === "traffic_signals" ? "signal" : ctl ? "stop" : "none",
-      cross: ways.map((w) => w.tags.name).join(" / "),
-      crossBusy: ways.some((w) => BIG_ROADS.has(w.tags.highway)),
+async function elevations(points) {
+  // USGS 3DEP (lidar, ~1 m in SF), 8 requests at a time; Copernicus 90 m DEM (Open-Meteo) as a fallback.
+  const out = new Array(points.length).fill(null);
+  let i = 0;
+  const worker = async () => {
+    while (i < points.length) {
+      const k = i++, p = points[k];
+      try {
+        const r = await fetch(`https://epqs.nationalmap.gov/v1/json?x=${p.lon}&y=${p.lat}&units=Meters&wkid=4326&includeDate=false`);
+        if (r.ok) { const v = +(await r.json()).value; if (isFinite(v) && v > -100) out[k] = v; }
+      } catch {}
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(8, points.length) }, worker));
+  const missing = out.map((v, k) => (v == null ? k : -1)).filter((k) => k >= 0);
+  if (missing.length) {
+    const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${missing.map((k) => points[k].lat).join(",")}&longitude=${missing.map((k) => points[k].lon).join(",")}`);
+    const j = await r.json();
+    missing.forEach((k, n) => (out[k] = +j.elevation[n]));
+    return { values: out, source: missing.length === points.length ? "Copernicus DEM (90 m)" : "USGS 3DEP + Copernicus DEM" };
+  }
+  return { values: out, source: "USGS 3DEP lidar" };
+}
+
+async function walkRoutes(a, b) {
+  // Street-following routes for walking/skating (FOSSGIS OSRM foot profile), with alternatives.
+  const url = `https://routing.openstreetmap.de/routed-foot/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson&alternatives=3&steps=true`;
+  const r = await fetch(url, { headers: { "user-agent": "HalteSF/1.0 (personal transit app)" } });
+  if (!r.ok) throw Object.assign(new Error("Street routing responded " + r.status), { status: 502 });
+  const j = await r.json();
+  if (j.code !== "Ok" || !j.routes?.length) throw Object.assign(new Error("No street route between those points."), { status: 422 });
+  return j.routes.map((rt) => ({
+    coords: rt.geometry.coordinates.map(([lon, lat]) => ({ lat, lon })),
+    streets: [...new Set(rt.legs.flatMap((l) => l.steps.map((s) => s.name)).filter(Boolean))],
+  }));
+}
+
+function resample(coords, spacing, maxPts) {
+  // points every `spacing` metres along the route (plus both ends), with distance from the start
+  const segs = [];
+  let total = 0;
+  for (let k = 1; k < coords.length; k++) { const d = metres(coords[k - 1], coords[k]); segs.push(d); total += d; }
+  const step = Math.max(spacing, total / (maxPts - 1));
+  const pts = [{ ...coords[0], d: 0 }];
+  let next = step, acc = 0;
+  for (let k = 1; k < coords.length; k++) {
+    const d = segs[k - 1];
+    while (next <= acc + d && next < total) {
+      const f = (next - acc) / d;
+      pts.push({ lat: coords[k - 1].lat + (coords[k].lat - coords[k - 1].lat) * f, lon: coords[k - 1].lon + (coords[k].lon - coords[k - 1].lon) * f, d: next });
+      next += step;
+    }
+    acc += d;
+  }
+  pts.push({ ...coords[coords.length - 1], d: total });
+  return { pts, total };
+}
+
+function analyse(profile) {
+  // climbs: stretches where the route gains more than 1.5 m before going down again
+  const climbs = [];
+  let low = profile[0], climbStart = null;
+  for (let k = 1; k < profile.length; k++) {
+    const p = profile[k];
+    if (p.e < low.e) { if (climbStart && climbStart.gain > 1.5) climbs.push(climbStart); climbStart = null; low = p; continue; }
+    const gain = p.e - low.e;
+    if (gain > 0.3) climbStart = { from: Math.round(low.d), to: Math.round(p.d), gain: +gain.toFixed(1) };
+  }
+  if (climbStart && climbStart.gain > 1.5) climbs.push(climbStart);
+  let steepest = 0;
+  for (let k = 0; k < profile.length; k++) { // steepest grade over any ~25 m+ stretch
+    for (let m = k + 1; m < profile.length; m++) {
+      if (profile[m].d - profile[k].d >= 25) { steepest = Math.max(steepest, ((profile[k].e - profile[m].e) / (profile[m].d - profile[k].d)) * 100); break; }
+    }
+  }
+  return { climbs, climb: +climbs.reduce((s, c) => s + c.gain, 0).toFixed(1), steepest: +steepest.toFixed(1) };
+}
+
+async function routeHill(start, finish) {
+  // 1) make sure the start is the higher end
+  const ends = await elevations([start, finish]);
+  let swapped = false;
+  if (ends.values[1] > ends.values[0]) { [start, finish] = [finish, start]; swapped = true; }
+  // 2) street routes between them, 3) elevation every ~25 m on each, 4) keep the most downhill one
+  const routes = (await walkRoutes(start, finish)).slice(0, 3);
+  let best = null;
+  for (const rt of routes) {
+    const { pts, total } = resample(rt.coords, 25, 40);
+    const el = await elevations(pts);
+    const profile = pts.map((p, k) => ({ d: Math.round(p.d), e: +el.values[k].toFixed(1) }));
+    const a = analyse(profile);
+    const drop = profile[0].e - profile[profile.length - 1].e;
+    const cand = {
+      start: { ...start, elev: profile[0].e }, finish: { ...finish, elev: profile[profile.length - 1].e }, swapped,
+      path: rt.coords.map((c) => [+c.lat.toFixed(6), +c.lon.toFixed(6)]), streets: rt.streets,
+      length: Math.round(total), drop: +drop.toFixed(1), grade: total ? +((drop / total) * 100).toFixed(1) : 0,
+      steepest: a.steepest, climb: a.climb, climbs: a.climbs, downhillAll: a.climbs.length === 0,
+      profile, elevSource: el.source,
     };
-  } catch {}
-  const hill = { street: { name: "", busy: false }, top: h.top, bottom: { ...h.bottom, ...bottom }, length: h.length, drop: h.drop, grade: h.grade, elevSource: h.elevSource };
-  return { ...hill, ...rateHill(hill) };
+    if (!best || cand.climb < best.climb || (cand.climb === best.climb && cand.length < best.length)) best = cand;
+    if (best.downhillAll) break;
+  }
+  return best;
 }
 
 // ---------- trip planner: one direct Muni ride, using live predictions ----------
@@ -402,19 +486,19 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", maxAge ? `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` : "no-store");
     res.status(code).send(JSON.stringify(body));
   };
-  if (!KEY && !["spots", "hills", "hillcalc"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
+  if (!KEY && !["spots", "hills", "hillroute"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
 
   try {
     switch (q.ep) {
       case "ping":
         return send(200, { ok: true, agency: AGENCY });
       case "lines":
-        return send(200, await get511("lines", { operator_id: AGENCY }, TTL.lines, slimLines), 3600);
+        return send(200, await allLines(), 3600);
       case "stops":
-        return send(200, await get511("stops", { operator_id: AGENCY }, TTL.stops, slimStops), 3600);
+        return send(200, await allStops(), 3600);
       case "arrivals": {
-        const ids = String(q.stops || "").split(",").filter(Boolean).slice(0, 30);
-        const idx = await get511("StopMonitoring", { agency: AGENCY }, TTL.arrivals, indexArrivals);
+        const ids = String(q.stops || "").split(",").filter(Boolean).slice(0, 40);
+        const idx = await allArrivals();
         const stops = {};
         for (const id of ids) stops[id] = idx.byStop[id] || [];
         return send(200, { updated: idx.updated, stops }, 30);
@@ -422,39 +506,39 @@ module.exports = async function handler(req, res) {
       case "line": {
         const line = String(q.line || "");
         if (!line) return send(400, { error: "missing line parameter" });
+        const ag = line.startsWith(BART + ":") ? BART : AGENCY;
+        const raw = ag === BART ? line.slice(BART.length + 1) : line;
         const [dirs, idx] = await Promise.all([
-          get511("patterns", { operator_id: AGENCY, line_id: line }, TTL.pattern, slimPatterns),
-          get511("StopMonitoring", { agency: AGENCY }, TTL.arrivals, indexArrivals),
+          get511("patterns", { operator_id: ag, line_id: raw }, TTL.pattern, (j) => slimPatterns(j, ag)),
+          allArrivals(),
         ]);
         return send(200, { directions: dirs, vehicles: idx.vehicles.filter((v) => v.line === line) }, 30);
       }
       case "vehicles": {
         // every Muni vehicle with a GPS position, from the same cached feed (no extra 511 calls)
-        const idx = await get511("StopMonitoring", { agency: AGENCY }, TTL.arrivals, indexArrivals);
+        const idx = await allArrivals();
         const vehicles = idx.vehicles.filter((v) => v.lat != null);
         return send(200, { updated: idx.updated, vehicles }, 30);
       }
       case "hills":
-        return send(200, await cached("hills", 7 * 86400, fetchHills), 3600);
-      case "hillcalc": {
+        return send(200, await cached("hills", 7 * 86400, fetchHillList), 3600);
+      case "hillroute": {
         const a = parsePoint(q.a), b = parsePoint(q.b);
         if (!a || !b) return send(400, { error: "a and b must be lat,lon" });
-        if (metres(a, b) < 20 || metres(a, b) > 3000) return send(400, { error: "Top and bottom must be 20 m to 3 km apart." });
-        return send(200, await measureCustomHill(a, b), 86400);
+        if (metres(a, b) < 20 || metres(a, b) > 3000) return send(400, { error: "Start and finish must be 20 m to 3 km apart." });
+        const key = "hr|" + q.a + "|" + q.b;
+        return send(200, await cached(key, 7 * 86400, () => routeHill(a, b)), 86400);
       }
       case "spots":
         return send(200, await cached("spots", 86400, fetchSkateSpots), 3600);
       case "plan": {
         const from = parsePoint(q.from), to = parsePoint(q.to);
         if (!from || !to) return send(400, { error: "from and to must be lat,lon" });
-        const [idx, stops] = await Promise.all([
-          get511("StopMonitoring", { agency: AGENCY }, TTL.arrivals, indexArrivals),
-          get511("stops", { operator_id: AGENCY }, TTL.stops, slimStops),
-        ]);
+        const [idx, stops] = await Promise.all([allArrivals(), allStops()]);
         return send(200, planTrip(idx, stops, from, to), 0);
       }
       case "alerts":
-        return send(200, await get511("servicealerts", { agency: AGENCY }, TTL.alerts, slimAlerts), 300);
+        return send(200, await allAlerts(), 300);
       default:
         return send(400, { error: "unknown ep" });
     }
