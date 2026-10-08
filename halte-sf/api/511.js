@@ -633,7 +633,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", maxAge ? `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` : "no-store");
     res.status(code).send(JSON.stringify(body));
   };
-  if (!KEY && !["config", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
+  if (!KEY && !["config", "wind", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
 
   try {
     if (req.method === "POST") {
@@ -686,6 +686,19 @@ module.exports = async function handler(req, res) {
         if (bad) return send(400, { error: bad });
         const key = "hr2|" + pts.map((p) => p.lat + "," + p.lon).join(";");
         return send(200, await cached(key, 7 * 86400, () => routeHillThrough(pts)), 86400);
+      }
+      case "wind": {
+        // current wind at the hill (Open-Meteo, free, no key); cached 15 min per ~1 km cell
+        const p = parsePoint(q.at);
+        if (!p) return send(400, { error: "at must be lat,lon" });
+        const key = "wind|" + p.lat.toFixed(2) + "," + p.lon.toFixed(2);
+        const w = await cached(key, 900, async () => {
+          const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat.toFixed(3)}&longitude=${p.lon.toFixed(3)}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=ms`);
+          if (!r.ok) throw Object.assign(new Error("Weather responded " + r.status), { status: 502 });
+          const c = (await r.json()).current || {};
+          return { speed: +c.wind_speed_10m || 0, from: +c.wind_direction_10m || 0, gusts: +c.wind_gusts_10m || 0, time: c.time || "" };
+        });
+        return send(200, w, 600);
       }
       case "config":
         // MapTiler keys are meant to be used in the browser; restrict yours to this site's address in MapTiler.
