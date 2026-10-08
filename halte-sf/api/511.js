@@ -349,13 +349,16 @@ async function elevations(points) {
   return { values: out, source: "USGS 3DEP lidar" };
 }
 
-async function walkRoutes(a, b) {
-  // Street-following routes for walking/skating (FOSSGIS OSRM foot profile), with alternatives.
-  const url = `https://routing.openstreetmap.de/routed-foot/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson&alternatives=3&steps=true`;
+async function streetRoutes(points, alternatives) {
+  // Street-following routes through every point in order. Bike profile: stays on streets a board can roll on
+  // (no stairs or footpaths); one-way rules don't apply to the bike profile the way they do for cars.
+  const coords = points.map((p) => `${p.lon},${p.lat}`).join(";");
+  const url = `https://routing.openstreetmap.de/routed-bike/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true&continue_straight=true` +
+    (alternatives ? "&alternatives=3" : "");
   const r = await fetch(url, { headers: { "user-agent": "HalteSF/1.0 (personal transit app)" } });
   if (!r.ok) throw Object.assign(new Error("Street routing responded " + r.status), { status: 502 });
   const j = await r.json();
-  if (j.code !== "Ok" || !j.routes?.length) throw Object.assign(new Error("No street route between those points."), { status: 422 });
+  if (j.code !== "Ok" || !j.routes?.length) throw Object.assign(new Error("No street route through those points."), { status: 422 });
   return j.routes.map((rt) => ({
     coords: rt.geometry.coordinates.map(([lon, lat]) => ({ lat, lon })),
     streets: [...new Set(rt.legs.flatMap((l) => l.steps.map((s) => s.name)).filter(Boolean))],
@@ -372,7 +375,7 @@ function resample(coords, spacing, maxPts) {
   let next = step, acc = 0;
   for (let k = 1; k < coords.length; k++) {
     const d = segs[k - 1];
-    while (next <= acc + d && next < total) {
+    while (d > 0 && next <= acc + d && next < total) {
       const f = (next - acc) / d;
       pts.push({ lat: coords[k - 1].lat + (coords[k].lat - coords[k - 1].lat) * f, lon: coords[k - 1].lon + (coords[k].lon - coords[k - 1].lon) * f, d: next });
       next += step;
@@ -382,6 +385,8 @@ function resample(coords, spacing, maxPts) {
   pts.push({ ...coords[coords.length - 1], d: total });
   return { pts, total };
 }
+
+const WALKABLE_CLIMB_M = 8; // any single uphill stretch up to ~8 m (about two floors) counts as an easy walk
 
 function analyse(profile) {
   // climbs: stretches where the route gains more than 1.5 m before going down again
@@ -395,39 +400,78 @@ function analyse(profile) {
   }
   if (climbStart && climbStart.gain > 1.5) climbs.push(climbStart);
   let steepest = 0;
-  for (let k = 0; k < profile.length; k++) { // steepest grade over any ~25 m+ stretch
+  for (let k = 0; k < profile.length; k++) { // steepest downhill grade over any ~25 m+ stretch
     for (let m = k + 1; m < profile.length; m++) {
       if (profile[m].d - profile[k].d >= 25) { steepest = Math.max(steepest, ((profile[k].e - profile[m].e) / (profile[m].d - profile[k].d)) * 100); break; }
     }
   }
-  return { climbs, climb: +climbs.reduce((s, c) => s + c.gain, 0).toFixed(1), steepest: +steepest.toFixed(1) };
+  const total = profile[profile.length - 1].d || 1;
+  const finalFrom = total * 0.75; // last quarter of the route
+  const fin = profile.filter((p) => p.d >= finalFrom);
+  const finalDrop = fin.length > 1 ? fin[0].e - fin[fin.length - 1].e : 0;
+  const climbInFinal = climbs.some((c) => c.to > finalFrom && c.gain > 1.5);
+  const maxClimb = climbs.reduce((m, c) => Math.max(m, c.gain), 0);
+  return {
+    climbs, climb: +climbs.reduce((s, c) => s + c.gain, 0).toFixed(1), steepest: +steepest.toFixed(1),
+    maxClimb: +maxClimb.toFixed(1), walkable: maxClimb <= WALKABLE_CLIMB_M,
+    endsDownhill: finalDrop > 1 && !climbInFinal, finalDrop: +finalDrop.toFixed(1),
+  };
+}
+
+async function measure(rt, start, finish, extra) {
+  const { pts, total } = resample(rt.coords, 25, 80);
+  const el = await elevations(pts);
+  const profile = pts.map((p, k) => ({ d: Math.round(p.d), e: +el.values[k].toFixed(1) }));
+  const a = analyse(profile);
+  const drop = profile[0].e - profile[profile.length - 1].e;
+  return {
+    start: { ...start, elev: profile[0].e }, finish: { ...finish, elev: profile[profile.length - 1].e }, ...extra,
+    path: rt.coords.map((c) => [+c.lat.toFixed(6), +c.lon.toFixed(6)]), streets: rt.streets,
+    length: Math.round(total), drop: +drop.toFixed(1), grade: total ? +((drop / total) * 100).toFixed(1) : 0,
+    steepest: a.steepest, climb: a.climb, climbs: a.climbs, maxClimb: a.maxClimb, walkable: a.walkable,
+    endsDownhill: a.endsDownhill, finalDrop: a.finalDrop, downhillAll: a.climbs.length === 0, downhillOverall: drop > 0,
+    profile, elevSource: el.source,
+  };
 }
 
 async function routeHill(start, finish) {
-  // 1) make sure the start is the higher end
+  // Two points: make sure the start is the higher end, try alternative streets, keep the most downhill one.
   const ends = await elevations([start, finish]);
   let swapped = false;
   if (ends.values[1] > ends.values[0]) { [start, finish] = [finish, start]; swapped = true; }
-  // 2) street routes between them, 3) elevation every ~25 m on each, 4) keep the most downhill one
-  const routes = (await walkRoutes(start, finish)).slice(0, 3);
+  const routes = (await streetRoutes([start, finish], true)).slice(0, 3);
   let best = null;
   for (const rt of routes) {
-    const { pts, total } = resample(rt.coords, 25, 40);
-    const el = await elevations(pts);
-    const profile = pts.map((p, k) => ({ d: Math.round(p.d), e: +el.values[k].toFixed(1) }));
-    const a = analyse(profile);
-    const drop = profile[0].e - profile[profile.length - 1].e;
-    const cand = {
-      start: { ...start, elev: profile[0].e }, finish: { ...finish, elev: profile[profile.length - 1].e }, swapped,
-      path: rt.coords.map((c) => [+c.lat.toFixed(6), +c.lon.toFixed(6)]), streets: rt.streets,
-      length: Math.round(total), drop: +drop.toFixed(1), grade: total ? +((drop / total) * 100).toFixed(1) : 0,
-      steepest: a.steepest, climb: a.climb, climbs: a.climbs, downhillAll: a.climbs.length === 0,
-      profile, elevSource: el.source,
-    };
-    if (!best || cand.climb < best.climb || (cand.climb === best.climb && cand.length < best.length)) best = cand;
+    const cand = await measure(rt, start, finish, { swapped, via: 0 });
+    const score = (c) => (c.walkable ? 0 : 1000) + (c.endsDownhill ? 0 : 100) + c.climb;
+    if (!best || score(cand) < score(best) || (score(cand) === score(best) && cand.length < best.length)) best = cand;
     if (best.downhillAll) break;
   }
   return best;
+}
+
+async function routeHillThrough(points) {
+  // Pinned line: start, points along the way, finish, in the order the rider tapped them.
+  if (points.length === 2) return routeHill(points[0], points[1]);
+  const [rt] = await streetRoutes(points, false);
+  const r = await measure(rt, points[0], points[points.length - 1], { swapped: false, via: points.length - 2 });
+  if (!r.downhillOverall) throw Object.assign(new Error("This line ends higher than it starts. Put the start pin at the top."), { status: 422 });
+  return r;
+}
+
+function parsePoints(list) {
+  const arrIn = Array.isArray(list) ? list : String(list || "").split(";");
+  const pts = arrIn.map(parsePoint).filter(Boolean);
+  return pts.length === arrIn.length ? pts : null;
+}
+function checkLine(pts) {
+  if (!pts || pts.length < 2) return "Set at least a start and a finish.";
+  if (pts.length > 12) return "Use 12 pins or fewer.";
+  if (!pts.every(inSF)) return "Hills must be in San Francisco.";
+  let len = 0;
+  for (let k = 1; k < pts.length; k++) len += metres(pts[k - 1], pts[k]);
+  if (len < 20 || len > 6000) return "The line must be 20 m to 6 km long.";
+  return null;
 }
 
 // ---------- community spots & hills (public, stored in Upstash Redis) ----------
@@ -491,14 +535,15 @@ async function addSpot(body, ip) {
 
 async function addHill(body, ip) {
   const name = cleanText(body.name, 60);
-  const a = parsePoint(body.a), b = parsePoint(body.b);
+  const pts = body.pts ? parsePoints(body.pts) : [parsePoint(body.a), parsePoint(body.b)];
   if (name.length < 2) throw Object.assign(new Error("Give the hill a name."), { status: 400 });
-  if (!inSF(a) || !inSF(b)) throw Object.assign(new Error("Hills must be in San Francisco."), { status: 400 });
-  if (metres(a, b) < 20 || metres(a, b) > 3000) throw Object.assign(new Error("Start and finish must be 20 m to 3 km apart."), { status: 400 });
+  const bad = checkLine(pts && pts.every(Boolean) ? pts : null);
+  if (bad) throw Object.assign(new Error(bad), { status: 400 });
   if (!body.token || String(body.token).length < 16) throw Object.assign(new Error("Missing device token."), { status: 400 });
   await rateLimit(ip, "add", 10);
-  const route = await routeHill(a, b); // measured on the server, never trusted from the phone
-  const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "hill", name, street: "", a, b, route, created: new Date().toISOString(), owner: sha(body.token), reporters: [] };
+  const route = await routeHillThrough(pts); // measured on the server, never trusted from the phone
+  const item = { id: "c-" + crypto.randomUUID().slice(0, 12), kind: "hill", name, street: "", a: pts[0], b: pts[pts.length - 1], pts, route,
+    created: new Date().toISOString(), owner: sha(body.token), reporters: [] };
   await redis("HSET", "c:hills", item.id, JSON.stringify(item));
   bust();
   return publicView(item);
@@ -588,7 +633,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", maxAge ? `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` : "no-store");
     res.status(code).send(JSON.stringify(body));
   };
-  if (!KEY && !["spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
+  if (!KEY && !["config", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
 
   try {
     if (req.method === "POST") {
@@ -636,12 +681,15 @@ module.exports = async function handler(req, res) {
       case "hills":
         return send(200, await cached("hills", 7 * 86400, fetchHillList), 3600);
       case "hillroute": {
-        const a = parsePoint(q.a), b = parsePoint(q.b);
-        if (!a || !b) return send(400, { error: "a and b must be lat,lon" });
-        if (metres(a, b) < 20 || metres(a, b) > 3000) return send(400, { error: "Start and finish must be 20 m to 3 km apart." });
-        const key = "hr|" + q.a + "|" + q.b;
-        return send(200, await cached(key, 7 * 86400, () => routeHill(a, b)), 86400);
+        const pts = q.pts ? parsePoints(q.pts) : [parsePoint(q.a), parsePoint(q.b)];
+        const bad = checkLine(pts && pts.every(Boolean) ? pts : null);
+        if (bad) return send(400, { error: bad });
+        const key = "hr2|" + pts.map((p) => p.lat + "," + p.lon).join(";");
+        return send(200, await cached(key, 7 * 86400, () => routeHillThrough(pts)), 86400);
       }
+      case "config":
+        // MapTiler keys are meant to be used in the browser; restrict yours to this site's address in MapTiler.
+        return send(200, { maptilerKey: process.env.MAPTILER_KEY || "" }, 300);
       case "community":
         return send(200, await listCommunity(), 15);
       case "spots":
