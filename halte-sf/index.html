@@ -1478,7 +1478,7 @@ function drawPickedPins(){
 }
 function drawHills(){
   if (!S.map || !S.hillLayer) return;
-  if (S.tab!=='spots'){ S.hillLayer.clearLayers(); return; }
+  if (S.tab!=='spots' || (S.spotSeg!=='hills' && !S.hillPick)){ S.hillLayer.clearLayers(); return; }
   if (!S.termsOk){ S.hillLayer.clearLayers(); return; }
   if (S.hillPick?.picking) return; // keep the picked point visible
   S.hillLayer.clearLayers();
@@ -1497,7 +1497,7 @@ function drawHills(){
 }
 function drawSpots(){
   if (!S.map || !S.spotLayer) return;
-  if (S.tab!=='spots'){ S.spotLayer.clearLayers(); return; }
+  if (S.tab!=='spots' || S.spotSeg==='hills'){ S.spotLayer.clearLayers(); return; }
   S.spotLayer.clearLayers();
   if (!S.termsOk) return;
   if (S.map.getZoom() < 12) return;
@@ -1549,6 +1549,7 @@ function drawLine(){
 }
 async function showOnMap(opts){
   S.mapSpot = opts.spot || null; S.mapHill = opts.hill || null;
+  if (opts.spot) S.spotSeg = 'spots'; if (opts.hill) S.spotSeg = 'hills';
   S.mapFocus = opts.stop || null; S.mapLine = opts.line || null; S.mapVeh = opts.veh || null;
   S.centerVeh = !!opts.veh; S.lineFitted = false;
   closeSheet(); S.tab = (opts.spot || opts.hill) ? 'spots' : 'near'; S.pos[S.tab] = 'peek'; S.browse[S.tab] = null; renderTab(); window.scrollTo(0,0);
@@ -1750,7 +1751,7 @@ document.addEventListener('click', async e => {
   if (t.id==='compassBtn'){ tapCompass(); return; }
   if (t.id==='scrim' || 'close' in ds){ closeSheet(); return; }
   if (ds.openStop){ openSheet({type:'stop', id:ds.openStop}); return; }
-  if (ds.seg){ S.spotSeg = ds.seg; const k = $('#skTop'); if (k) k.innerHTML = skateTop(); renderDyn(); return; }
+  if (ds.seg){ S.spotSeg = ds.seg; const k = $('#skTop'); if (k) k.innerHTML = skateTop(); renderDyn(); drawSpots(); drawHills(); return; }
   if (t.id==='termsAgree'){ if (!$('#termsChk').checked){ toast('Tick the box to confirm you’ve read the terms.'); return; }
     S.termsOk = true; store.set('terms', TERMS_VERSION); store.set('termsAt', new Date().toISOString()); renderTab(); return; }
   if (t.id==='openTerms'){ openSheet({type:'terms'}); return; }
@@ -1775,7 +1776,7 @@ document.addEventListener('click', async e => {
   if ('donePins' in ds){ if (S.hillPick?.pts.length >= 2){ S.hillPick.picking = false; mapMsg(); openSheet({type:'addhill'}); } return; }
   if ('cancelHill' in ds){ S.hillPick = null; S.hillLayer?.clearLayers(); mapMsg(); drawHills(); return; }
   if (t.id==='hlPick'){ S.hillPick.name = $('#hlName').value; S.hillPick.picking = true; S.hillPick.pts = [];
-    closeSheet(); S.mapLine = S.mapVeh = S.mapFocus = S.mapSpot = S.mapHill = null; S.tab = 'spots'; S.pos.spots = 'peek'; renderTab(); window.scrollTo(0,0); S.hillLayer?.clearLayers(); mapMsg(); return; }
+    closeSheet(); S.mapLine = S.mapVeh = S.mapFocus = S.mapSpot = S.mapHill = null; S.spotSeg = 'hills'; S.tab = 'spots'; S.pos.spots = 'peek'; renderTab(); window.scrollTo(0,0); S.hillLayer?.clearLayers(); mapMsg(); return; }
   if (t.id==='hlSave'){
     const hp = S.hillPick; hp.name = $('#hlName').value.trim();
     if (!hp.name){ toast('Give the hill a name.'); return; }
@@ -1816,7 +1817,7 @@ document.addEventListener('click', async e => {
   if (t.id==='addSpot'){ S.spotDraft = null; openSheet({type:'addspot'}); return; }
   if (t.id==='spHere' || t.id==='spPick' || t.id==='spSave'){
     const dr = S.spotDraft; dr.name = $('#spName').value; dr.type = $('#spType').value; dr.note = $('#spNote').value;
-    if (t.id==='spPick'){ S.pickSpot = true; closeSheet(); S.mapLine = null; S.mapVeh = null; S.mapFocus = null; S.mapSpot = null; S.tab = 'spots'; S.pos.spots = 'peek'; renderTab(); window.scrollTo(0,0); return; }
+    if (t.id==='spPick'){ S.pickSpot = true; closeSheet(); S.mapLine = null; S.mapVeh = null; S.mapFocus = null; S.mapSpot = null; S.spotSeg = 'spots'; S.tab = 'spots'; S.pos.spots = 'peek'; renderTab(); window.scrollTo(0,0); return; }
     if (t.id==='spHere'){
       if (!navigator.geolocation){ toast('Location isn’t available on this device.'); return; }
       navigator.geolocation.getCurrentPosition(p => { dr.lat = +p.coords.latitude.toFixed(6); dr.lon = +p.coords.longitude.toFixed(6); renderSheet(); toast('Location set to where you are.'); },
