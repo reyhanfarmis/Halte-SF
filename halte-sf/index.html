@@ -384,6 +384,30 @@ button.pc-r{padding:2px}
 .lb-n small{font-size:12px;color:var(--muted)}
 .lb-p{font:600 18px/1 var(--f-num);color:var(--accent);text-align:right}
 .lb-p small{display:block;font:500 11px/1.3 var(--f-body);color:var(--muted)}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.gal{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.gal-i,.gal-add{position:relative;flex:none;width:112px;height:112px;border-radius:12px;overflow:hidden;scroll-snap-align:start;background:var(--surface-2)}
+.gal-i img{width:100%;height:100%;object-fit:cover;display:block}
+.gal-play{position:absolute;inset:0;display:grid;place-items:center}
+.gal-play svg{width:34px;height:34px}
+.gal-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed var(--rule);background:var(--surface);color:var(--muted);font-size:12px;font-weight:600;text-align:center;line-height:1.25;cursor:pointer}
+.gal-add svg{width:26px;height:26px;color:var(--accent)}
+.mup{position:relative;background:var(--surface);border-radius:10px;padding:9px 12px;font-size:13px;overflow:hidden}
+.mup i{position:absolute;left:0;bottom:0;height:3px;background:var(--accent);transition:width .2s}
+.viewer{background:#000;border-radius:var(--r);overflow:hidden;display:grid;place-items:center;max-height:62vh}
+.viewer img,.viewer video{width:100%;max-height:62vh;object-fit:contain;display:block}
+.sp-th{width:52px;height:52px;border-radius:10px;object-fit:cover;flex:none;align-self:center}
+label.iconbtn{cursor:pointer;position:relative}
+.pinrow{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.pintip{background:var(--fg);color:var(--bg);font-size:12px;font-weight:600;padding:6px 10px;border-radius:10px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.mbtn.pinon{background:var(--accent);color:var(--on-accent)}
+.mbtn svg[aria-hidden]{width:24px;height:24px}
+.pinhint{position:absolute;left:10px;top:calc(68px + env(safe-area-inset-top,0px));z-index:3;display:flex;align-items:center;gap:8px;background:var(--surface);color:var(--fg);font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.pinhint svg{width:14px;height:14px;color:var(--accent)}
+.pinhint[hidden]{display:none!important}
+.pc-x{width:32px;height:32px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;flex:none}
+.pc-top{display:flex;align-items:flex-start;gap:10px}
+.pc-top .pc-h{flex:1;min-width:0}
 .me2{position:relative;display:block;width:20px;height:20px}
 .me2 .halo{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(46,110,214,.16)}
 .me2 .cone{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;transition:transform .2s linear}
@@ -486,7 +510,7 @@ const DEMO_SPOTS = [
   {id:'ds3', name:'Balboa Skatepark', lat:37.72470, lon:-122.44400, kind:'park'},
   {id:'ds4', name:'Crocker Amazon Skatepark', lat:37.71100, lon:-122.43720, kind:'park'},
 ];
-const TERMS_VERSION = '2026-10-08b';
+const TERMS_VERSION = '2026-10-08c';
 const TERMS_HTML = `
 <p class="big">Know your limits. Skate at your own risk.</p>
 <p>Halte SF shows skate spots, hills and Muni directions for information only. Read these terms before using the Spots and Hills features.</p>
@@ -508,10 +532,12 @@ const TERMS_HTML = `
 <p>Spots and hills you add are visible to everyone who uses the app. Only add places that are public. Don’t add private property, someone’s home, school grounds, or places where skating is prohibited, and don’t include personal information in names or notes. You give the developer permission to show, store and remove what you share. Anything can be reported; items reported by several people are hidden, and the developer can remove anything at any time. Shared spots and hills are not checked or endorsed by the developer.</p>
 <h3>8a. Accounts and the leaderboard</h3>
 <p>You can browse everything without an account. To add spots, skateparks or hills you sign in with Google. Halte stores only an anonymous ID and the username you pick, never your email or Google name. Your username appears on what you add and on the leaderboard, so don’t use your real full name. Points are just for fun and can be reset or removed at any time.</p>
+<h3>8b. Photos and videos</h3>
+<p>Only post photos and videos you took yourself, of the spot or hill. Don’t post anyone’s face or anyone under 18 without their (or their parent’s) permission, and nothing violent, sexual, hateful or illegal. Don’t film or post trespassing. Photos are re-saved without their location data; videos keep whatever your phone recorded, so turn off location tagging in your camera if you don’t want it shared. Posts reported by 2 people are hidden, and the developer can remove anything.</p>
 <h3>9. Transit data</h3>
 <p>Transit times are estimates from 511.org. Halte SF is not affiliated with SFMTA, Muni or BART.</p>
 <h3>10. General</h3>
-<p>These terms are governed by the laws of California. If any part is unenforceable, the rest still applies. Terms may be updated; you’ll be asked to accept a new version. Version ${'2026-10-08b'}.</p>`;
+<p>These terms are governed by the laws of California. If any part is unenforceable, the rest still applies. Terms may be updated; you’ll be asked to accept a new version. Version ${'2026-10-08c'}.</p>`;
 const DEMO_HILLS = [
   {id:'dh1', street:'Sample hill', name:'Sample hill: Hyde St → Leavenworth St', a:{lat:37.80150,lon:-122.41840,cross:'Hyde St'}, b:{lat:37.80130,lon:-122.41670,cross:'Leavenworth St'},
    route:{start:{lat:37.80150,lon:-122.41840,elev:85}, finish:{lat:37.80130,lon:-122.41670,elev:40}, swapped:false, path:[[37.8015,-122.4184],[37.8014,-122.4176],[37.8013,-122.4167]],
@@ -989,7 +1015,8 @@ function renderDyn(){
       .map(x => ({...x, d:dist(S.browse.spots || S.here, x)})).sort((a,b)=>a.d-b.d).slice(0, 40);
     d.innerHTML = list.length ? list.map(sp => {
       const ns = S.stops.length ? nearestStop(sp) : null;
-      return `<article class="card"><button class="card-h" data-open-spot="${esc(sp.id)}"><span class="nm">${esc(sp.name)}<br>${kindLabel(sp)}</span><span class="dist">${fmtAway(sp.d, 'spots')}</span></button>
+      const th = mediaOf('spot', sp.id)[0];
+      return `<article class="card"><button class="card-h" data-open-spot="${esc(sp.id)}"><span class="nm">${esc(sp.name)}<br>${kindLabel(sp)}</span>${th ? `<img class="sp-th" src="${esc(th.thumb)}" alt="" loading="lazy">` : ''}<span class="dist">${fmtAway(sp.d, 'spots')}</span></button>
         ${ns?`<div class="spot-sub"><span>Closest Muni stop: ${esc(ns.name)} · ${walkMins(ns.d)} min walk</span></div>`:''}</article>`;
     }).join('') : `<div class="note">${!allSpots().length ? 'Loading skate spots…' : q ? 'Nothing matches that search.' : f==='spot' ? 'No street spots shared yet.' : f==='park' ? 'No skateparks here yet.' : 'Nothing here yet.'} Tap <b>+ Add</b> to share a street spot or skatepark.</div>`;
   }
@@ -1160,16 +1187,38 @@ window.addEventListener('resize', () => { measureTabs(); if (isMapTab()) setShee
 /* ================= FOLLOW ME + COMPASS ================= */
 S.follow = true; S.headingUp = false; S.heading = null; S.gps = null; S.watchId = null;
 function startWatch(asked){
-  if (S.watchId != null || !navigator.geolocation) { if (!navigator.geolocation && asked) toast('Location isn’t available on this device.'); return; }
-  if (asked) toast('Finding your location…');
-  S.watchId = navigator.geolocation.watchPosition(onPos, () => {
-    stopWatch(); S.locDenied = true; if (asked) toast('Location is off for Halte. Turn it on in your phone’s settings (see Settings → Location).'); S.follow = false; updMapBtns();
-  }, {enableHighAccuracy:true, maximumAge:5000, timeout:30000});
+  if (!navigator.geolocation){ if (asked) toast('Location isn’t available on this device.'); return; }
+  if (S.watchId != null) return;
+  if (asked && !S.gps) toast('Finding your location…');
+  S.watchAsked = !!asked;
+  // a quick rough fix first so the dot shows up fast, then precise GPS keeps updating
+  if (!S.gps) navigator.geolocation.getCurrentPosition(onPos, () => {}, {enableHighAccuracy:false, maximumAge:60000, timeout:8000});
+  // no timeout: phones only send a new position when you move, so standing still is normal, not an error
+  S.watchId = navigator.geolocation.watchPosition(onPos, onGeoErr, {enableHighAccuracy:true, maximumAge:2000});
+  S.lastFix = S.lastFix || Date.now();
 }
+function onGeoErr(e){
+  if (e && e.code === 1){ // permission denied: the only error that really means "off"
+    stopWatch(); S.locDenied = true; S.follow = false; updMapBtns();
+    if (S.watchAsked) toast('Location is off for Halte. Turn it on in your phone’s settings (see Settings → Location).');
+    return;
+  }
+  // weak signal or a slow fix: keep the dot and try again shortly
+  stopWatch(); setTimeout(() => { if (!document.hidden) startWatch(false); }, 2500);
+}
+setInterval(() => { // watchdog: if a watch went quiet for 45 s, restart it (iOS sometimes stops delivering)
+  if (document.hidden || S.locDenied || !navigator.geolocation) return;
+  if (S.watchId == null){ startWatch(false); return; }
+  if (S.lastFix && Date.now() - S.lastFix > 45000){ stopWatch(); startWatch(false); S.lastFix = Date.now(); }
+}, 15000);
+window.addEventListener('pageshow', () => { if (!S.locDenied) startWatch(false); });
+window.addEventListener('focus', () => { if (!S.locDenied) startWatch(false); });
 function stopWatch(){ if (S.watchId != null){ navigator.geolocation.clearWatch(S.watchId); S.watchId = null; } }
 function onPos(p){
-  const c = p.coords; S.locDenied = false;
-  S.gps = {lat:c.latitude, lon:c.longitude, acc:c.accuracy || 30, course:(c.heading != null && !isNaN(c.heading) && (c.speed || 0) > 1.5) ? c.heading : null};
+  const c = p.coords; S.locDenied = false; S.lastFix = Date.now();
+  // ignore a sudden rough cell-tower fix when a precise GPS fix is only a minute old
+  if (S.gps && c.accuracy > 300 && S.gps.acc < 100 && Date.now() - (S.gps.t || 0) < 60000) return;
+  S.gps = {t:Date.now(), lat:c.latitude, lon:c.longitude, acc:c.accuracy || 30, course:(c.heading != null && !isNaN(c.heading) && (c.speed || 0) > 1.5) ? c.heading : null};
   if (!S.here || S.here.label !== 'you' || dist(S.here, S.gps) > 120){
     S.here = {lat:S.gps.lat, lon:S.gps.lon, label:'you'}; store.set('here', S.here);
     const w = $('.mhead .where'); if (w) w.textContent = 'Near you';
@@ -1235,7 +1284,10 @@ async function startCompass(){
   S.compassOn = true; return true;
 }
 function updMapBtns(){
-  const f = $('#followBtn'), c = $('#compassBtn');
+  const f = $('#followBtn'), c = $('#compassBtn'), pb = $('#pinBtn');
+  if (pb){ const on = !!S.browse.near; pb.classList.toggle('pinon', on); pb.setAttribute('aria-pressed', String(on));
+    pb.setAttribute('aria-label', on ? 'Remove the pin and go back to near you' : 'Drop a pin to check another spot'); }
+  const w = $('.mhead .where'); if (w && S.tab==='near') w.textContent = S.browse.near ? 'Pin dropped' : (S.here?.label==='you' ? 'Near you' : S.here?.label || 'Near you');
   if (f){ f.classList.toggle('on', S.follow && S.watchId != null); f.setAttribute('aria-pressed', String(S.follow && S.watchId != null)); }
   if (c){ c.classList.toggle('on', S.headingUp); c.setAttribute('aria-pressed', String(S.headingUp));
     c.setAttribute('aria-label', S.headingUp ? 'Compass on: tap to turn the map north up' : 'Compass: turn the map to face where you’re facing');
@@ -1252,6 +1304,7 @@ async function tapCompass(){
   if (S.heading == null) toast('Turn around slowly if the arrow doesn’t move.'); else followCenter(true);
 }
 function tapFollow(){
+  if (S.browse.near){ pinOff(); return; }
   endBrowse(); S.follow = true; startWatch(S.watchId == null); updMapBtns();
   if (S.gps) followCenter(true);
 }
@@ -1272,7 +1325,9 @@ function mapChrome(){
     <div class="mbtns">
       <button class="mbtn" id="compassBtn" aria-label="Compass: turn the map to face where you're facing">${ICON.compass}</button>
       <button class="mbtn" id="followBtn" aria-label="Follow my location">${ICON.follow}</button>
+      ${S.tab==='near' ? `<div class="pinrow">${store.get('pinUsed', false) ? '' : '<span class="pintip">Check another spot</span>'}<button class="mbtn" id="pinBtn" aria-label="Drop a pin to check another spot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="10" r="2.6"/></svg></button></div>` : ''}
     </div>
+    <div class="pinhint" id="pinHint" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>Drag the map to move the pin</div>
     <div class="cpin" id="cpin" hidden>${PIN_SVG}</div>
     <div class="pincard" id="pincard" hidden></div>`;
 }
@@ -1296,6 +1351,7 @@ function placeOverlays(){
   const browsing = !!S.browse[S.tab], full = S.pos[S.tab]==='full';
   if (pin){ pin.hidden = !browsing || full || !!linePin(); pin.style.top = Math.round((headB + top)/2 - 42) + 'px'; }
   if (card){ card.hidden = !browsing || full || S.tab!=='near' || !card.innerHTML; card.style.bottom = ($('#view').clientHeight - top + 10) + 'px'; }
+  const hint = $('#pinHint'); if (hint) hint.hidden = !browsing || full || !!linePin() || S.tab!=='near' || !!S.mapLine;
 }
 const linePin = () => S.tab==='near' && S.browse.near && S.mapLine && S.pinStop ? stopById(S.pinStop) : null;
 function drawLinePin(){
@@ -1322,8 +1378,10 @@ function renderPinCard(){
   const times = lp
     ? (gs.length ? gs.map(g => `<span class="pc-line">${badge(g.line, true)}<span>to ${esc(g.dest)}</span><b>${g.items.slice(0,3).map(x => { const m = etaMin(x.eta); return m<=0 ? 'Now' : m+'′'; }).join(' · ')}</b></span>`).join('') : `<small>No ${esc(L.code)} departures from this stop soon</small>`)
     : (S.arr[st.id]===undefined ? '<small>Loading times…</small>' : gs.length ? gs.map(g => { const m = etaMin(g.items[0].eta); return `<button class="pc-r" data-pin-line="${esc(g.line)}" data-pin-dir="${esc(g.dir||'')}" data-pin-stop="${esc(st.id)}" aria-label="Show route ${esc(lineInfo(g.line).code)} on the map">${badge(g.line, true)}<b>${m<=0?'Now':m+'′'}</b></button>`; }).join('') : '<small>No departures soon</small>');
-  card.innerHTML = `<div class="pc${lp ? ' col' : ''}"><button class="pc-h" data-open-stop="${esc(st.id)}"><b>${esc(st.name)}</b><small>${lp ? 'Pinned stop · tap for all departures' : 'Closest stop · ' + fmtAway(st.d, 'near') + ' · tap a route to see it'}</small></button>
-    <span class="pc-d">${times}</span></div>`;
+  const x = `<button class="pc-x" data-pin-off aria-label="Remove pin">${ICON.close}</button>`;
+  card.innerHTML = lp
+    ? `<div class="pc col"><div class="pc-top"><button class="pc-h" data-open-stop="${esc(st.id)}"><b>${esc(st.name)}</b><small>Pinned stop · tap for all departures</small></button>${x}</div><span class="pc-d">${times}</span></div>`
+    : `<div class="pc"><button class="pc-h" data-open-stop="${esc(st.id)}"><b>${esc(st.name)}</b><small>Closest stop · ${fmtAway(st.d, 'near')} · tap a route</small></button><span class="pc-d">${times}</span>${x}</div>`;
   placeOverlays();
 }
 let browseT = null;
@@ -1333,13 +1391,23 @@ function onBrowse(){
   placeOverlays();
   clearTimeout(browseT);
   browseT = setTimeout(() => {
-    if (S.tab==='near'){ const nh = $('#nearH'); if (nh) nh.textContent = 'Near the pin'; renderDyn(); refreshArrivals(); }
+    if (S.tab==='near'){ const nh = $('#nearH'); if (nh) nh.textContent = 'Near the pin'; updMapBtns(); renderDyn(); refreshArrivals(); }
     else { const h = $('#skH'); if (h) h.textContent = 'Near the pin'; renderDyn(); }
   }, 350);
 }
+function tapPin(){
+  if (S.browse.near){ pinOff(); return; }
+  store.set('pinUsed', true); $('.pintip')?.remove();
+  S.follow = false; onBrowse(); updMapBtns();
+}
+function pinOff(){
+  S.pinStop = null; S.pinMarker?.remove(); S.pinMarker = null;
+  if (S.mapLine || S.mapVeh){ S.mapLine = null; S.mapVeh = null; S.lineLayer?.clearLayers(); drawVehicles(); mapMsg(); }
+  endBrowse(); renderPinCard(); S.follow = true; startWatch(false); updMapBtns(); if (S.gps) followCenter(true);
+}
 function endBrowse(){
   if (!S.browse[S.tab]) return;
-  S.browse[S.tab] = null;
+  S.browse[S.tab] = null; setTimeout(updMapBtns, 0);
   const nh = $('#nearH'); if (nh) nh.textContent = 'Near you';
   const h = $('#skH'); if (h) h.textContent = 'Near you';
   renderDyn(); if (S.tab==='near') refreshArrivals(); placeOverlays();
@@ -1391,10 +1459,10 @@ function leadersHtml(){
   if (L.error) return '<div class="note">Couldn’t load the leaderboard. Try again in a moment.</div>';
   const rows = L.leaders || [];
   const me = S.me?.uid;
-  const how = `<div class="note">Points: spot or skatepark <b>1</b>, hill <b>2</b>, knobbed/skateable report <b>0.2</b>. Posts hidden after reports don’t count.</div>`;
+  const how = `<div class="note">Points: spot or skatepark <b>1</b>, hill <b>2</b>, photo or video <b>0.5</b>, knobbed/skateable report <b>0.2</b>. Posts hidden after reports don’t count.</div>`;
   if (!rows.length) return how + `<div class="note">${L.demo ? 'The leaderboard fills up in the installed app.' : 'Nobody’s on the board yet. Add a spot, skatepark or hill to take #1.'}</div>`;
   return how + `<ol class="lb">${rows.map(r => `<li class="${r.uid===me?'me':''}"><span class="lb-r">${r.rank}</span>
-      <span class="lb-n"><b>@${esc(r.name)}</b><small>${[[r.spots,'spot'],[r.parks,'park'],[r.hills,'hill'],[r.reports,'report']].filter(x=>x[0]).map(([n,w])=>`${n} ${w}${n>1?'s':''}`).join(' · ')}</small></span>
+      <span class="lb-n"><b>@${esc(r.name)}</b><small>${[[r.spots,'spot'],[r.parks,'park'],[r.hills,'hill'],[r.media,'photo/video'],[r.reports,'report']].filter(x=>x[0]).map(([n,w])=>`${n} ${w}${n>1?'s':''}`).join(' · ')}</small></span>
       <span class="lb-p">${r.points}<small>pts</small></span></li>`).join('')}</ol>`;
 }
 function accountBlock(){
@@ -1404,13 +1472,101 @@ function accountBlock(){
   return `<div class="set"><span>You don’t need an account to use Halte. Sign in only to add spots, skateparks and hills and get on the leaderboard.</span>
       <button class="iconbtn" data-acct="signin">Sign in with Google</button></div>`;
 }
+
+/* ================= PHOTOS & VIDEOS ================= */
+S.myMedia = new Set(store.get('mymedia', []));
+const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="rgba(0,0,0,.55)"/><path d="M10 7.5v9l7-4.5z" fill="#fff"/></svg>';
+const mediaOf = (kind, id) => ((S.community.media || {})[kind + ':' + id]) || [];
+const mediaMine = m => S.myMedia.has(m.id) || (!!S.me?.uid && m.uid === S.me.uid);
+function mediaBlock(kind, id){
+  const list = mediaOf(kind, id);
+  if (!S.mediaOn && !list.length) return '';
+  return `<div class="h">Photos &amp; videos${list.length ? ' · ' + list.length : ''}</div>
+    <div class="gal">${list.map((m, i) => `<button class="gal-i" data-media-open="${kind}:${esc(id)}:${i}" aria-label="Open ${m.t==='video'?'video':'photo'} ${i+1}">
+        <img src="${esc(m.thumb)}" alt="" loading="lazy">${m.t==='video' ? `<span class="gal-play">${PLAY_SVG}</span>` : ''}</button>`).join('')}
+      ${S.mediaOn ? `<label class="gal-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2.5h5L16 6"/></svg><span>Add photo<br>or video</span>
+        <input type="file" accept="image/*,video/*" multiple data-media-up="${kind}:${esc(id)}" class="vh"></label>` : ''}</div>
+    <div id="mupProg" class="mup" hidden></div>`;
+}
+function shrinkImage(file, max = 1600){
+  return new Promise((ok, bad) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      c.toBlob(b => b ? ok(b) : bad(new Error('Couldn’t read that photo.')), 'image/jpeg', 0.85); }; // re-encoding also strips the photo's GPS data
+    img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('Couldn’t read that photo.')); };
+    img.src = url;
+  });
+}
+function videoDuration(file){
+  return new Promise(ok => { const v = document.createElement('video'), url = URL.createObjectURL(file); v.preload = 'metadata';
+    v.onloadedmetadata = () => { URL.revokeObjectURL(url); ok(v.duration || 0); }; v.onerror = () => { URL.revokeObjectURL(url); ok(0); }; v.src = url; });
+}
+function xhrUpload(url, form, onPct){
+  return new Promise((ok, bad) => { const x = new XMLHttpRequest(); x.open('POST', url);
+    x.upload.onprogress = e => e.lengthComputable && onPct(e.loaded / e.total);
+    x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} x.status < 300 ? ok(j) : bad(new Error(j.error?.message || 'Upload failed.')); };
+    x.onerror = () => bad(new Error('Upload failed. Check your connection.')); x.send(form); });
+}
+function setProg(txt, pct){ const el = $('#mupProg'); if (!el) return; el.hidden = !txt; el.innerHTML = txt ? `<span>${esc(txt)}</span><i style="width:${Math.round((pct||0)*100)}%"></i>` : ''; }
+async function uploadMedia(kind, id, files){
+  if (needAccount('add')) return;
+  files = [...files].filter(f => /^(image|video)\//.test(f.type)).slice(0, 6);
+  if (!files.length){ toast('Pick a photo or a video.'); return; }
+  let done = 0;
+  for (const [i, f] of files.entries()){
+    const isVid = f.type.startsWith('video/'), label = `${isVid ? 'Video' : 'Photo'} ${i+1} of ${files.length}`;
+    try {
+      if (isVid){
+        if (f.size > 100e6) throw new Error('Videos need to be under 100 MB.');
+        if (await videoDuration(f) > 61) throw new Error('Keep videos under 60 seconds.');
+      }
+      setProg(label + ': getting ready…', 0);
+      const blob = isVid ? f : await shrinkImage(f);
+      const sig = await post('mediasign', {kind, id, token:S.ownerToken}, 15000);
+      const fd = new FormData();
+      fd.append('file', blob, isVid ? (f.name || 'video.mp4') : 'photo.jpg');
+      fd.append('api_key', sig.apiKey); fd.append('timestamp', String(sig.timestamp)); fd.append('folder', sig.folder); fd.append('signature', sig.signature);
+      const up = await xhrUpload(`https://api.cloudinary.com/v1_1/${sig.cloud}/auto/upload`, fd, p => setProg(label + ': uploading', p));
+      setProg(label + ': saving…', 1);
+      const r = await post('addmedia', {kind, id, token:S.ownerToken, public_id:up.public_id, version:up.version, signature:up.signature,
+        resource_type:up.resource_type, width:up.width, height:up.height, duration:up.duration}, 20000);
+      (S.community.media ||= {})[r.key] = r.media; if (r.added){ S.myMedia.add(r.added); store.set('mymedia', [...S.myMedia]); }
+      done++;
+    } catch (e) { toast(e.message || 'Upload failed.'); }
+  }
+  setProg('');
+  if (done) toast(done === 1 ? 'Posted. Thanks for showing the spot!' : `${done} posted. Thanks for showing the spot!`);
+  if (S.sheet) renderSheet(); renderDyn();
+}
+document.addEventListener('change', e => { if (e.target.id==='spFiles' && S.spotDraft){ const dr = S.spotDraft; dr.name = $('#spName')?.value ?? dr.name; dr.note = $('#spNote')?.value ?? dr.note; dr.files = [...e.target.files].slice(0, 6); renderSheet(); } });
+document.addEventListener('change', e => { const k = e.target.dataset?.mediaUp; if (!k) return; const i = k.indexOf(':'); uploadMedia(k.slice(0, i), k.slice(i+1), e.target.files); e.target.value = ''; });
+document.addEventListener('click', e => { const g = e.target.closest('.gal-add'); if (g && accountsOn() && !signedIn()){ e.preventDefault(); needAccount('add'); } }, true);
+function mediaViewer(s){
+  const list = mediaOf(s.kind, s.id), i = Math.max(0, Math.min(list.length - 1, s.i || 0)), m = list[i];
+  if (!m) return null;
+  const place = s.kind==='hill' ? hillById(s.id)?.name : spotById(s.id)?.name;
+  return `<div class="sheet-h"><h2>${esc(place || 'Photos')}<div class="meta">${i+1} of ${list.length}${m.by ? ' · by @' + esc(m.by) : ''} · ${agoDays(m.at)}</div></h2>
+      <button class="close" data-back-place="${s.kind}:${esc(s.id)}" aria-label="Back">${ICON.close}</button></div>
+    <div class="sheet-b">
+      <div class="viewer">${m.t==='video'
+        ? `<video src="${esc(m.src)}" poster="${esc(m.thumb)}" controls playsinline autoplay muted loop preload="metadata"></video>`
+        : `<img src="${esc(m.src)}" alt="Photo of ${esc(place || 'this spot')}">`}</div>
+      <div class="sheet-actions" style="justify-content:space-between">
+        <span style="display:flex;gap:8px"><button class="iconbtn ghost" data-media-step="-1" ${i===0?'disabled':''} aria-label="Previous">‹</button><button class="iconbtn ghost" data-media-step="1" ${i===list.length-1?'disabled':''} aria-label="Next">›</button></span>
+        <span style="display:flex;gap:8px">${mediaMine(m) ? `<button class="iconbtn ghost danger" data-media-del="${esc(m.id)}">Delete</button>` : `<button class="iconbtn ghost" data-media-rep="${esc(m.id)}">Report</button>`}</span>
+      </div>
+      <div class="note" style="font-size:12.5px">Posts reported by 2 people are hidden.</div>
+    </div>`;
+}
 /* ================= MAP ENGINE (MapLibre, with a tiny Leaflet-style wrapper) ================= */
 // Zoom levels below use the classic web-map scale (MapLibre's zoom + 1), so thresholds like 15/16 keep their meaning.
 S.mapKey = undefined;
 async function getMapKey(){
   if (S.mapKey !== undefined) return S.mapKey;
   if (S.mode !== 'live') return ''; // not known to be online yet: ask again later instead of remembering "no key"
-  try { const c = await api('config', {}, 5000); S.mapKey = c.maptilerKey || ''; S.gcid = c.googleClientId || ''; } catch { return ''; }
+  try { const c = await api('config', {}, 5000); S.mapKey = c.maptilerKey || ''; S.gcid = c.googleClientId || ''; S.mediaOn = !!c.media; } catch { return ''; }
   return S.mapKey;
 }
 function mapStyle(key){
@@ -1595,7 +1751,7 @@ async function initMap(){
   S.vehLayer = L.layerGroup().addTo(m);
   updateMe();
   m._ml.on('dragstart', e => { if (e.originalEvent){ S.userMoved = true; if (S.follow){ S.follow = false; updMapBtns(); } } });
-  m._ml.on('moveend', () => { if (S.userMoved){ S.userMoved = false; if (!S.follow && S.tab==='near' && !S.mapLine && !S.mapVeh) onBrowse(); } });
+  m._ml.on('moveend', () => { if (S.userMoved){ S.userMoved = false; if (S.tab==='near' && S.browse.near && !S.mapLine && !S.mapVeh) onBrowse(); } });
   m._ml.on('rotate', updMapBtns);
   setSheetPos(S.pos[S.tab], false);
   if (S.browse[S.tab] || v0 || focus || S.mapLine || S.mapHill || S.mapSpot || S.hillPick?.picking || S.pickSpot) S.follow = false;
@@ -1791,6 +1947,7 @@ function renderSheet(){
           ${sp.community && !sp.mine?`<button class="iconbtn ghost" data-report="spot:${esc(sp.id)}">Report</button>`:''}
         </div>
         ${sp.note?`<div class="note">${esc(sp.note)}</div>`:''}
+        ${mediaBlock('spot', sp.id)}
         ${knobBlock(sp)}
         <div class="h">Get there by Muni or BART</div>
         ${trips}
@@ -1815,6 +1972,7 @@ function renderSheet(){
     el.innerHTML = `<div class="sheet-h"><h2>${esc(h.name)}<div class="meta">${r ? dhBadge(r)+' · ' : ''}start is ${fmtDist(dist(S.here, h.start))}</div></h2>
         <button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
+        ${mediaBlock('hill', h.id)}
         ${body}
         <div class="sheet-actions">
           <button class="iconbtn ghost" data-map-hill="${esc(h.id)}">${ICON.loc} Show route on map</button>
@@ -1842,6 +2000,9 @@ function renderSheet(){
   } else if (s.type==='terms'){
     el.innerHTML = `<div class="sheet-h"><h2>Terms & safety<div class="meta">${S.termsOk?'Accepted':'Not accepted yet'} · version ${TERMS_VERSION}</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b"><div class="terms">${TERMS_HTML}</div></div>`;
+  } else if (s.type==='media'){
+    const html = mediaViewer(s); if (!html){ openSheet({type:s.kind, id:s.id}); return; }
+    el.innerHTML = html;
   } else if (s.type==='signin'){
     el.innerHTML = `<div class="sheet-h"><h2>Sign in to add<div class="meta">Browsing never needs an account</div></h2><button class="close" data-close aria-label="Close">${ICON.close}</button></div>
       <div class="sheet-b">
@@ -1872,6 +2033,8 @@ function renderSheet(){
         <div class="seg" role="group" aria-label="Kind"><button data-add-kind="spot" aria-pressed="${!park}">Street spot</button><button data-add-kind="park" aria-pressed="${park}">Skatepark</button></div>
         <div class="field"><label for="spName">Name</label><input id="spName" value="${esc(dr.name)}" placeholder="${park ? 'e.g. Potrero del Sol Skatepark' : 'e.g. Embarcadero ledges'}" maxlength="60"></div>
         ${park ? '' : `<div class="field"><label for="spType">Type</label><select id="spType">${SPOT_TYPES.filter(t=>t!=='Park').map(t=>`<option${t===dr.type?' selected':''}>${t}</option>`).join('')}</select></div>`}
+        ${S.mediaOn ? `<div class="field"><span class="lbl" style="font-weight:600">Photos &amp; videos <span style="font-weight:400;color:var(--muted)">(optional, videos up to 60 s)</span></span>
+          <label class="iconbtn ghost" style="justify-content:center">${dr.files?.length ? dr.files.length + ' selected · change' : 'Choose photos or videos'}<input type="file" id="spFiles" accept="image/*,video/*" multiple class="vh"></label></div>` : ''}
         <div class="field"><label for="spNote">Notes</label><textarea id="spNote" placeholder="Best time to go, security, what to skate" maxlength="300">${esc(dr.note)}</textarea></div>
         <div class="field"><span class="lbl" style="font-weight:600">Location</span>
           <div class="locrow"><button class="iconbtn ghost" id="spHere">${ICON.loc} Use where I am</button><button class="iconbtn ghost" id="spPick">Pick on map</button>
@@ -1947,6 +2110,8 @@ document.addEventListener('click', async e => {
   if (ds.vehRoute){ S.mapLine = {id:ds.vehRoute, dir:ds.vehDir}; S.lineFitted = true; if (!S.lineData[ds.vehRoute]) await loadLine(ds.vehRoute); drawLine(); drawVehicles(); mapMsg(); return; }
   if ('clearVeh' in ds){ S.mapVeh = null; drawVehicles(); mapMsg(); if (!S.mapLine) leaveLinePin(); return; }
   if (t.id==='followBtn'){ tapFollow(); return; }
+  if (t.id==='pinBtn'){ tapPin(); return; }
+  if ('pinOff' in ds){ pinOff(); return; }
   if (t.id==='locOn'){ startWatch(true); return; }
   if (t.id==='compassBtn'){ tapCompass(); return; }
   if (t.id==='scrim' || 'close' in ds){ closeSheet(); return; }
@@ -2021,6 +2186,14 @@ document.addEventListener('click', async e => {
       try { const r = await post('status', {kind:'spot', id, status, token:S.ownerToken}, 15000); (S.community.status ||= {})[r.key] = r; }
       catch (e) { t.disabled = false; toast(e.status===503 ? 'Reports need the community storage switched on.' : (e.message || 'Couldn’t send that.')); return; } }
     toast(status==='knobbed' ? 'Thanks. Marked as knobbed for everyone.' : 'Thanks. Marked as skateable.'); renderSheet(); renderDyn(); drawSpots(); return; }
+  if (ds.mediaOpen){ const [kind, ...rest] = ds.mediaOpen.split(':'), i = +rest.pop(); openSheet({type:'media', kind, id:rest.join(':'), i}); return; }
+  if (ds.mediaStep){ S.sheet.i = (S.sheet.i || 0) + +ds.mediaStep; renderSheet(); return; }
+  if (ds.backPlace){ const k = ds.backPlace, j = k.indexOf(':'); openSheet({type:k.slice(0, j), id:k.slice(j+1)}); return; }
+  if (ds.mediaRep || ds.mediaDel){ const s0 = S.sheet, del = !!ds.mediaDel;
+    if (!t.dataset.armed){ t.dataset.armed = '1'; t.textContent = del ? 'Tap again to delete' : 'Tap again to report'; return; }
+    try { await post(del ? 'mediadelete' : 'mediareport', {kind:s0.kind, id:s0.id, mid:ds.mediaDel || ds.mediaRep, token:S.ownerToken}, 15000);
+      toast(del ? 'Deleted.' : 'Thanks for reporting.'); await loadCommunity(); openSheet({type:s0.kind, id:s0.id}); }
+    catch (e) { toast(e.message || 'Couldn’t do that.'); } return; }
   if (ds.acct==='signin'){ openSheet({type:'signin'}); return; }
   if (ds.acct==='rename'){ openSheet({type:'username'}); return; }
   if (ds.acct==='logout'){ try { await post('logout', {}, 8000); } catch {} S.session = null; S.me = null; store.set('session', null); store.set('me', null); toast('Signed out.'); renderTab(); return; }
@@ -2049,9 +2222,11 @@ document.addEventListener('click', async e => {
     if (S.mode==='demo'){ const sp = {id:'my-'+Date.now(), ...draft}; S.mySpots.unshift(sp); store.set('myspots', S.mySpots); S.spotDraft = null; toast('Saved on this phone (demo mode).'); openSheet({type:'spot', id:sp.id}); renderDyn(); drawSpots(); return; }
     t.disabled = true; t.textContent = 'Sharing…';
     try {
+      const files = dr.files || [];
       const sp = await post('addspot', {...draft, token:S.ownerToken}, 20000);
       rememberMine(sp.id); S.community.spots.unshift(sp); S.spotDraft = null;
       toast('Spot shared. Everyone can see it now.'); openSheet({type:'spot', id:sp.id});
+      if (files.length && S.mediaOn) uploadMedia('spot', sp.id, files);
     } catch (e) {
       t.disabled = false; t.textContent = 'Share spot';
       if (e.status === 503){ const sp = {id:'my-'+Date.now(), ...draft}; S.mySpots.unshift(sp); store.set('myspots', S.mySpots); S.spotDraft = null;
