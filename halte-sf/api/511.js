@@ -521,7 +521,9 @@ async function listCommunity() {
     for (let i = 0; i + 1 < flat.length; i += 2) { try { status[flat[i]] = summarizeStatus(JSON.parse(flat[i + 1])); } catch {} }
     const users = await usersMap();
     const named = (x) => (x.uid && users[x.uid]?.name ? { ...x, by: users[x.uid].name } : x);
-    return { spots: parse(sp).map(named), hills: parse(hl).map(named), status };
+    const media = await mediaAll();
+    for (const l of Object.values(media)) for (const m of l) if (m.uid && users[m.uid]?.name) m.by = users[m.uid].name;
+    return { spots: parse(sp).map(named), hills: parse(hl).map(named), status, media };
   });
 }
 const bust = () => { mem.delete("community"); mem.delete("leaders"); };
@@ -599,16 +601,93 @@ async function usersMap() {
   for (let i = 0; i + 1 < arr.length; i += 2) { try { m[arr[i]] = JSON.parse(arr[i + 1]); } catch {} }
   return m;
 }
+
+// ---------- photos & videos (Cloudinary, signed by this server so only signed-in people can upload) ----------
+const CLD = (() => { const m = /^cloudinary:\/\/(\d+):([^@]+)@([\w-]+)/.exec(process.env.CLOUDINARY_URL || ""); return m ? { key: m[1], secret: m[2], cloud: m[3] } : null; })();
+const MEDIA_MAX = 12, MEDIA_ID = /^[\w:.\-]{1,80}$/;
+const sha1 = (x) => crypto.createHash("sha1").update(String(x)).digest("hex");
+async function mediaList(key) { try { return JSON.parse((await redis("HGET", "c:media", key)) || "[]"); } catch { return []; } }
+function mediaKey(body) {
+  const kind = body.kind === "hill" ? "hill" : "spot", id = String(body.id || "");
+  if (!MEDIA_ID.test(id)) throw err(400, "Unknown spot.");
+  return kind + ":" + id;
+}
+async function mediaSign(body, ip) {
+  if (!CLD) throw err(503, "Photo uploads aren't switched on yet.");
+  const user = await poster(body);
+  if (!body.token || String(body.token).length < 16) throw err(400, "Missing device token.");
+  const key = mediaKey(body);
+  if ((await mediaList(key)).filter((m) => !m.hidden).length >= MEDIA_MAX) throw err(400, `This place already has ${MEDIA_MAX} photos and videos.`);
+  await rateLimit(ip, "media", 30);
+  const timestamp = Math.floor(Date.now() / 1000), folder = "halte/" + key.replace(":", "/");
+  const signature = sha1(`folder=${folder}&timestamp=${timestamp}${CLD.secret}`);
+  return { cloud: CLD.cloud, apiKey: CLD.key, timestamp, folder, signature, user: user ? user.name : null };
+}
+async function mediaAdd(body) {
+  if (!CLD) throw err(503, "Photo uploads aren't switched on yet.");
+  const user = await poster(body), key = mediaKey(body);
+  const pid = String(body.public_id || ""), ver = String(body.version || "");
+  if (!pid.startsWith("halte/" + key.replace(":", "/") + "/") || sha1(`public_id=${pid}&version=${ver}${CLD.secret}`) !== body.signature)
+    throw err(400, "That upload couldn't be checked.");
+  const type = body.resource_type === "video" ? "video" : "image";
+  const list = await mediaList(key);
+  if (list.some((m) => m.pid === pid)) return { key, media: list.filter((m) => !m.hidden).map(publicMedia) };
+  const newId = crypto.randomUUID().slice(0, 10);
+  list.push({ id: newId, t: type, pid, v: ver, w: +body.width || 0, h: +body.height || 0, dur: +body.duration || 0,
+    uid: user ? user.uid : undefined, owner: sha(body.token || ""), at: Date.now(), rep: [] });
+  await redis("HSET", "c:media", key, JSON.stringify(list.slice(-40)));
+  bust();
+  return { key, added: newId, media: list.filter((m) => !m.hidden).map(publicMedia) };
+}
+function publicMedia(m) {
+  const base = `https://res.cloudinary.com/${CLD ? CLD.cloud : "x"}/${m.t}/upload`;
+  return m.t === "video"
+    ? { id: m.id, t: "video", uid: m.uid, at: m.at, w: m.w, h: m.h, dur: m.dur, src: `${base}/q_auto,w_1080,c_limit/v${m.v}/${m.pid}.mp4`, thumb: `${base}/so_0,w_480,c_limit/v${m.v}/${m.pid}.jpg` }
+    : { id: m.id, t: "image", uid: m.uid, at: m.at, w: m.w, h: m.h, src: `${base}/f_auto,q_auto,w_1600,c_limit/v${m.v}/${m.pid}`, thumb: `${base}/f_auto,q_auto,w_480,c_limit/v${m.v}/${m.pid}` };
+}
+async function mediaReport(body, ip) {
+  const key = mediaKey(body), list = await mediaList(key), m = list.find((x) => x.id === body.mid);
+  if (!m) throw err(404, "Already removed.");
+  const who = sha(ip).slice(0, 16);
+  if (!m.rep.includes(who)) m.rep.push(who);
+  if (m.rep.length >= 2) m.hidden = true; // photos go faster than spots: 2 reports hide one
+  await redis("HSET", "c:media", key, JSON.stringify(list));
+  bust();
+  return { reported: true, hidden: !!m.hidden };
+}
+async function mediaDelete(body) {
+  const key = mediaKey(body), list = await mediaList(key), m = list.find((x) => x.id === body.mid);
+  if (!m) throw err(404, "Already removed.");
+  const user = m.uid ? await userFrom(body.session).catch(() => null) : null;
+  const ok = (body.token && sha(body.token) === m.owner) || (ADMIN && body.token === ADMIN) || (user && user.uid === m.uid);
+  if (!ok) throw err(403, "Only the person who posted this can delete it.");
+  if (CLD) { // remove the file from Cloudinary too
+    const ts = Math.floor(Date.now() / 1000);
+    const form = new URLSearchParams({ public_id: m.pid, timestamp: String(ts), api_key: CLD.key, signature: sha1(`public_id=${m.pid}&timestamp=${ts}${CLD.secret}`) });
+    await fetch(`https://api.cloudinary.com/v1_1/${CLD.cloud}/${m.t}/destroy`, { method: "POST", body: form }).catch(() => {});
+  }
+  await redis("HSET", "c:media", key, JSON.stringify(list.filter((x) => x.id !== m.id)));
+  bust();
+  return { deleted: m.id };
+}
+async function mediaAll() {
+  const flat = await redis("HGETALL", "c:media").catch(() => []);
+  const arr = Array.isArray(flat) ? flat : Object.entries(flat || {}).flat(), out = {};
+  for (let i = 0; i + 1 < arr.length; i += 2) { try { const l = JSON.parse(arr[i + 1]).filter((m) => !m.hidden).map(publicMedia); if (l.length) out[arr[i]] = l; } catch {} }
+  return out;
+}
 async function leaderboard() {
   return cached("leaders", 60, async () => {
     const [sp, hl, st, users] = await Promise.all([redis("HVALS", "c:spots"), redis("HVALS", "c:hills"), redis("HGETALL", "c:status").catch(() => []), usersMap()]);
     const score = {};
-    const add = (uid, k) => { if (!uid || !users[uid]?.name) return; (score[uid] ||= { spots: 0, parks: 0, hills: 0, reports: 0 })[k]++; };
+    const add = (uid, k) => { if (!uid || !users[uid]?.name) return; (score[uid] ||= { spots: 0, parks: 0, hills: 0, reports: 0, media: 0 })[k]++; };
     for (const x of sp || []) { try { const i = JSON.parse(x); if (!i.hidden) add(i.uid, i.cat === "park" ? "parks" : "spots"); } catch {} }
     for (const x of hl || []) { try { const i = JSON.parse(x); if (!i.hidden) add(i.uid, "hills"); } catch {} }
     const flat = Array.isArray(st) ? st : Object.entries(st || {}).flat();
     for (let i = 0; i + 1 < flat.length; i += 2) { try { for (const v of JSON.parse(flat[i + 1]).votes || []) add(v.u, "reports"); } catch {} }
-    const list = Object.entries(score).map(([uid, c]) => ({ uid, name: users[uid].name, ...c, points: Math.round((c.spots + c.parks + 2 * c.hills + 0.2 * c.reports) * 10) / 10 }))
+    const md = await redis("HGETALL", "c:media").catch(() => []), mf = Array.isArray(md) ? md : Object.entries(md || {}).flat();
+    for (let i = 0; i + 1 < mf.length; i += 2) { try { for (const m of JSON.parse(mf[i + 1])) if (!m.hidden) add(m.uid, "media"); } catch {} }
+    const list = Object.entries(score).map(([uid, c]) => ({ uid, name: users[uid].name, ...c, points: Math.round((c.spots + c.parks + 2 * c.hills + 0.2 * c.reports + 0.5 * c.media) * 10) / 10 }))
       .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name)).slice(0, 100).map((x, k) => ({ rank: k + 1, ...x }));
     return { updated: new Date().toISOString(), leaders: list };
   });
@@ -756,7 +835,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", maxAge ? `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` : "no-store");
     res.status(code).send(JSON.stringify(body));
   };
-  if (!KEY && !["config", "wind", "fog", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report", "status", "glogin", "setname", "me", "logout", "leaders"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
+  if (!KEY && !["config", "wind", "fog", "spots", "hills", "hillroute", "community", "addspot", "addhill", "delete", "report", "status", "glogin", "setname", "me", "logout", "leaders", "mediasign", "addmedia", "mediareport", "mediadelete"].includes(q.ep)) return send(503, { error: "API_511_KEY is not set in your Vercel environment variables." });
 
   try {
     if (req.method === "POST") {
@@ -777,6 +856,10 @@ module.exports = async function handler(req, res) {
           res.setHeader("Location", to); res.setHeader("Cache-Control", "no-store"); res.status(303); return res.send("");
         }
         case "setname": return send(200, await setName(body));
+        case "mediasign": return send(200, await mediaSign(body, ip));
+        case "addmedia": return send(200, await mediaAdd(body));
+        case "mediareport": return send(200, await mediaReport(body, ip));
+        case "mediadelete": return send(200, await mediaDelete(body));
         case "me": return send(200, await whoAmI(body));
         case "logout": return send(200, await logout(body));
         default: return send(400, { error: "unknown ep" });
@@ -869,7 +952,7 @@ module.exports = async function handler(req, res) {
       }
       case "config":
         // MapTiler keys are meant to be used in the browser; restrict yours to this site's address in MapTiler.
-        return send(200, { maptilerKey: process.env.MAPTILER_KEY || "", googleClientId: GCID }, 300);
+        return send(200, { maptilerKey: process.env.MAPTILER_KEY || "", googleClientId: GCID, media: !!CLD }, 300);
       case "leaders":
         return send(200, await leaderboard(), 30);
       case "community":
